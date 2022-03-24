@@ -11,10 +11,10 @@ import pickle5 as pickle
 from transformers import RobertaModel, RobertaTokenizerFast
 
 
-img_size_pairs = torch.load('/DATA2/cxx/mdetr/img_size_pairs.pth')
-img_attn_pairs = torch.load('/DATA2/cxx/mdetr/arm_attn_pairs.pth')
-img_token_pairs = torch.load('/DATA2/cxx/mdetr/img_token_pairs.pth')
-text_attn_pairs = torch.load('/DATA2/cxx/mdetr/text_attn_pairs.pth')
+img_size_pairs = torch.load('./img_size_pairs.pth')
+img_attn_pairs = torch.load('./arm_attn_pairs.pth')
+img_token_pairs = torch.load('./img_token_pairs.pth')
+text_attn_pairs = torch.load('./text_attn_pairs.pth')
 
 # def merge_img(jpg_img, png_img):
   
@@ -94,7 +94,7 @@ embed()
 for img_name in text_attn_pairs.keys():
     print(img_name)
     attn = text_attn_pairs[img_name]
-    pickle_path = '/DATA2/cxx/mdetr/yourefit/pickle/'+img_name+'.p'
+    pickle_path = './yourefit/pickle/'+img_name+'.p'
     pickle_file = pickle.load(open(pickle_path, "rb" ))
     caption = pickle_file['anno_sentence'].lower()
     i = img_token_pairs[img_name]
@@ -120,7 +120,7 @@ for img_name in text_attn_pairs.keys():
     caption_attn_pairs[img_name] = token_word_attn
 
     # attentions = nn.functional.interpolate(attentions.unsqueeze(0), scale_factor=32, mode="bilinear")[0].cpu().numpy()
-    # folder = '/DATA2/cxx/mdetr/vis/attn/'+img_name
+    # folder = './vis/attn/'+img_name
     # if not os.path.exists(folder):
     #     os.makedirs(folder)
 
@@ -133,13 +133,13 @@ for img_name in text_attn_pairs.keys():
 # for img_name in img_size_pairs.keys():
 #     size = img_size_pairs[img_name]
 #     attn = img_attn_pairs[img_name]
-#     img_path = '/DATA2/cxx/mdetr/yourefit/images/'+img_name+'.jpg'
+#     img_path = './yourefit/images/'+img_name+'.jpg'
 
 #     attentions = attn.reshape(10,size[0], size[1])
 
 #     attentions = torch.tensor(attentions)
 #     attentions = nn.functional.interpolate(attentions.unsqueeze(0), scale_factor=32, mode="bilinear")[0].cpu().numpy()
-#     folder = '/DATA2/cxx/mdetr/vis/attn/'+img_name
+#     folder = './vis/attn/'+img_name
 #     if not os.path.exists(folder):
 #         os.makedirs(folder)
 

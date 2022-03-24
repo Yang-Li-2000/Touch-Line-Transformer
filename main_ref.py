@@ -362,8 +362,8 @@ def main(args):
         #         std=[0.229, 0.224, 0.225])
         # ])
         input_transform = make_coco_transforms('train', False)
-        dataset_train = ReferDataset(data_root='/DATA2/cxx/mdetr',
-                        split_root='/DATA2/cxx/mdetr',
+        dataset_train = ReferDataset(data_root='.',
+                        split_root='.',
                         dataset='yourefit',
                         split='train',
                         transform=input_transform,
@@ -389,8 +389,8 @@ def main(args):
 
     val_tuples = []
     input_transform = make_coco_transforms('val', False) #val
-    dset = ReferDataset(data_root='/DATA2/cxx/mdetr/',
-                    split_root='/DATA2/cxx/mdetr/',
+    dset = ReferDataset(data_root='./',
+                    split_root='./',
                     dataset='yourefit',
                     split='val',
                     transform=input_transform,
@@ -604,6 +604,6 @@ if __name__ == "__main__":
     if args.output_dir:
         Path(args.output_dir).mkdir(parents=True, exist_ok=True)
     else:
-        args.output_dir = '/DATA2/cxx/mdetr/checkpoint1'
+        args.output_dir = './checkpoint1'
         Path(args.output_dir).mkdir(parents=True, exist_ok=True)
     main(args)

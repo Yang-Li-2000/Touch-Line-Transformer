@@ -13,9 +13,9 @@ def draw_box(img,box,img_name):
 
 
 
-for img_name in os.listdir('/DATA2/cxx/mdetr/yourefit/images'):
-    pickle_file = osp.join('/DATA2/cxx/mdetr/yourefit/pickle',img_name[:-4]+'.p')
+for img_name in os.listdir('./yourefit/images'):
+    pickle_file = osp.join('./yourefit/pickle',img_name[:-4]+'.p')
     pick = pickle.load(open(pickle_file, "rb" ))
-    img = cv2.imread('/DATA2/cxx/mdetr/yourefit/images/'+img_name)
+    img = cv2.imread('./images/'+img_name)
     bbox = pick['bbox']
-    draw_box(img,bbox,'/DATA2/cxx/mdetr/gt_vis/'+img_name)
+    draw_box(img,bbox,'./gt_vis/'+img_name)

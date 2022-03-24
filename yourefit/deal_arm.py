@@ -12,7 +12,7 @@ def deal_arm_json(jsonfile):
     return arm_line
 
 
-dir = '/DATA2/cxx/mdetr/yourefit/arm'
+dir = './yourefit/arm'
 
 
 arms= {}

@@ -479,6 +479,6 @@ if __name__ == "__main__":
     if args.output_dir:
         Path(args.output_dir).mkdir(parents=True, exist_ok=True)
     else:
-        args.output_dir = '/DATA2/cxx/mdetr/checkpoint1'
+        args.output_dir = './checkpoint1'
         Path(args.output_dir).mkdir(parents=True, exist_ok=True)
     main(args)

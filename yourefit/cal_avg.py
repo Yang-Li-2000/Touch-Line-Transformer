@@ -40,8 +40,8 @@ i=0
 
 
 
-for img_name in os.listdir('/DATA2/cxx/mdetr/yourefit/images'):
-    pickle_file = osp.join('/DATA2/cxx/mdetr/yourefit/pickle',img_name[:-4]+'.p')
+for img_name in os.listdir('./yourefit/images'):
+    pickle_file = osp.join('./yourefit/pickle',img_name[:-4]+'.p')
     pick = pickle.load(open(pickle_file, "rb" ))
     bbox_data[img_name[:-4]] = pick['bbox']
 
@@ -51,10 +51,10 @@ cos_sim_list=[]
 for name in arm_data.keys():
     arm = arm_data[name]
     box = bbox_data[name]
-    img_file = '/DATA2/cxx/mdetr/yourefit/images/'+name+'.jpg'
+    img_file = './yourefit/images/'+name+'.jpg'
     img = cv2.imread(img_file)
     print(name)
-    draw_box(img,box,'/DATA2/cxx/mdetr/vis/gt_vis/'+name+'.jpg',arm)
+    draw_box(img,box,'./vis/gt_vis/'+name+'.jpg',arm)
 
 
     #embed()

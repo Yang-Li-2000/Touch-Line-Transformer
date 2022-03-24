@@ -55,9 +55,9 @@ def match_pos(sentence,word):
     return arr
 
 
-file_list = os.listdir('/DATA2/cxx/mdetr/yourefit/pickle')
+file_list = os.listdir('./yourefit/pickle')
 for file in file_list:
-    pickle_file = '/DATA2/cxx/mdetr/yourefit/pickle/'+file
+    pickle_file = './yourefit/pickle/'+file
     pick = pickle.load(open(pickle_file, "rb" ))
     #embed()
     bbox = pick['bbox']

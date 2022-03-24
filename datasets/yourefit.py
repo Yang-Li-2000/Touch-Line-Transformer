@@ -31,7 +31,7 @@ import util.dist as dist
 from IPython import embed
 #sys.modules['utils'] = utils
 from transformers import RobertaTokenizerFast
-sys.path.append('/DATA2/cxx/mdetr/datasets')
+sys.path.append('./datasets')
 from .yourefit_token import match_pos
 import copy
 from util.box_ops import generalized_box_iou

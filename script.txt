@@ -1,9 +1,9 @@
-CUDA_VISIBLE_DEVICES=1,2,3 python -m torch.distributed.launch --nproc_per_node=3 --use_env main_ref.py --dataset_config configs/yourefit.json --batch_size 4   --ema --text_encoder_lr 1e-5 --lr 5e-5 --output-dir log/pretrained_20queries --load /DATA2/cxx/mdetr/pretrained/20_query_model.pth
-CUDA_VISIBLE_DEVICES=4,5,6 python -m torch.distributed.launch --nproc_per_node=3 --use_env main_ref.py --dataset_config configs/yourefit.json --batch_size 4   --ema --text_encoder_lr 1e-5 --lr 5e-5 --output-dir log/pretrained --load /DATA2/cxx/mdetr/pretrained/pretrained_resnet101_checkpoint.pth
+CUDA_VISIBLE_DEVICES=1,2,3 python -m torch.distributed.launch --nproc_per_node=3 --use_env main_ref.py --dataset_config configs/yourefit.json --batch_size 4   --ema --text_encoder_lr 1e-5 --lr 5e-5 --output-dir log/pretrained_20queries --load ./pretrained/20_query_model.pth
+CUDA_VISIBLE_DEVICES=4,5,6 python -m torch.distributed.launch --nproc_per_node=3 --use_env main_ref.py --dataset_config configs/yourefit.json --batch_size 4   --ema --text_encoder_lr 1e-5 --lr 5e-5 --output-dir log/pretrained --load ./pretrained/pretrained_resnet101_checkpoint.pth
 
 
 CUDA_VISIBLE_DEVICES=7 python -m torch.distributed.launch --nproc_per_node=1 --use_env main_ref.py --dataset_config configs/yourefit.json --batch_size 4   --ema --text_encoder_lr 1e-5 --lr 5e-5 --output-dir log/test
 
-CUDA_VISIBLE_DEVICES=6,7 python -m torch.distributed.launch --nproc_per_node=2 --use_env main_ref.py --dataset_config configs/yourefit.json --batch_size 4   --ema --text_encoder_lr 1e-5 --lr 5e-5 --output-dir log/pretrained --load /DATA2/cxx/mdetr/pretrained/no_class_20_query.pth
+CUDA_VISIBLE_DEVICES=6,7 python -m torch.distributed.launch --nproc_per_node=2 --use_env main_ref.py --dataset_config configs/yourefit.json --batch_size 4   --ema --text_encoder_lr 1e-5 --lr 5e-5 --output-dir log/pretrained --load ./pretrained/no_class_20_query.pth
 
-CUDA_VISIBLE_DEVICES=6,7 python -m torch.distributed.launch --nproc_per_node=2 --use_env main_ref.py --dataset_config configs/yourefit.json --batch_size 4   --ema --text_encoder_lr 1e-5 --lr 5e-5 --output-dir log/all --load /DATA2/cxx/mdetr/pretrained/20_query_model.pth
+CUDA_VISIBLE_DEVICES=6,7 python -m torch.distributed.launch --nproc_per_node=2 --use_env main_ref.py --dataset_config configs/yourefit.json --batch_size 4   --ema --text_encoder_lr 1e-5 --lr 5e-5 --output-dir log/all --load ./pretrained/20_query_model.pth
