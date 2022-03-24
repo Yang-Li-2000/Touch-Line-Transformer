@@ -1,0 +1,9 @@
+{
+    "combine_datasets": ["yourefit"],
+    "combine_datasets_val": ["yourefit"],
+    "refexp_dataset_name": "yourefit",
+    "coco_path": "/data/hdd01/cxx/mdetr/refcoco",
+    "refexp_ann_path": "/data/hdd01/cxx/mdetr/datasets/OpenSource",
+    "epochs": 90,
+    "lr_drop": 45 
+}
