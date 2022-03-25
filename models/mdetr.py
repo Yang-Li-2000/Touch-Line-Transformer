@@ -720,7 +720,7 @@ class SetCriterion(nn.Module):
         tgt_idx = torch.cat([tgt for (_, tgt) in indices])
         return batch_idx, tgt_idx
 
-    def get_loss(self, loss, outputs, targets, positive_map, indices, num_boxes, **kwargs):
+    def get_loss(self, loss, outputs, targets, positive_map, indices, num_boxes, args=None, **kwargs):
         loss_map = {
             "labels": self.loss_labels,
             "cardinality": self.loss_cardinality,
@@ -834,7 +834,7 @@ class SetCriterion(nn.Module):
             contrastive_obj_loss = contrastive_obj_loss - torch.log(postive_score.sum()/(postive_score.sum() + negtive_score.sum()))
         return contrastive_obj_loss
 
-    def forward(self, outputs, targets, positive_map):
+    def forward(self, outputs, targets, positive_map, args=None):
         """This performs the loss computation.
         Parameters:
              outputs: dict of tensors, see the output specification of the model for the format
@@ -864,7 +864,7 @@ class SetCriterion(nn.Module):
         #     losses.update({'arm_box_aligned_loss':arm_box_aligned_loss})
         
         for loss in self.losses:
-            losses.update(self.get_loss(loss, outputs, targets, positive_map, indices, num_boxes))
+            losses.update(self.get_loss(loss, outputs, targets, positive_map, indices, num_boxes, args=args))
 
         # In case of auxiliary losses, we repeat this process with the output of each intermediate layer.
         if "aux_outputs" in outputs:
@@ -898,7 +898,7 @@ def get_pose_loss(arm,arm_class,target_arm,idx=0):
     arm_cls_label = torch.zeros((bs,num), dtype=torch.long).cuda()
 
 
-    arm_loss = 0.0
+    arm_loss = torch.tensor(0, dtype=target_arm.dtype, device=target_arm.device)
     for i in range(bs):
         if i in null_list:
             continue

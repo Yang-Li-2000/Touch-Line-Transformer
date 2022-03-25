@@ -111,7 +111,14 @@ def reduce_dict(input_dict, average=True):
         # from IPython import embed
         # embed()
         #print(values)
-        values = torch.stack(values, dim=0)
+        try:
+            values = torch.stack(values, dim=0)
+        except:
+            print()
+            for k in names:
+                print(k, type(input_dict[k]), input_dict[k])
+                print()
+            raise NotImplementedError()
         dist.all_reduce(values)
         if average:
             values /= world_size

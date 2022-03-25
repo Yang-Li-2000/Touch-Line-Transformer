@@ -100,7 +100,7 @@ def train_one_epoch(
                 outputs.update(pose_out)
                 
         if criterion is not None:
-            loss_dict.update(criterion(outputs, targets, positive_map))
+            loss_dict.update(criterion(outputs, targets, positive_map, args=args))
 
         if contrastive_criterion is not None:
             assert memory_cache is not None
