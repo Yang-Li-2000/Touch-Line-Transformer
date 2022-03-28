@@ -21,9 +21,11 @@ from datasets.refexp import RefExpEvaluator
 from util.metrics import MetricLogger, SmoothedValue
 from util.misc import targets_to
 from util.optim import adjust_learning_rate, update_ema
-from IPython import embed
 import time
 from models.mdetr import get_pose_loss
+
+from magic_numbers import *
+import pandas as pd
 
 
 def train_one_epoch(
@@ -53,6 +55,15 @@ def train_one_epoch(
     metric_logger.add_meter("lr_text_encoder", SmoothedValue(window_size=1, fmt="{value:.6f}"))
     header = "Epoch: [{}]".format(epoch)
     print_freq = 10
+
+    # Create lists to store the outputs of mdetr
+    list_for_pred_scores = []
+    list_for_pred_classes = []
+    list_for_img_names = []
+    list_for_xmin = []
+    list_for_ymin = []
+    list_for_xmax = []
+    list_for_ymax = []
 
     num_training_steps = int(len(data_loader) * args.epochs)
     for i, batch_dict in enumerate(metric_logger.log_every(data_loader, print_freq, header,args.output_dir)):
@@ -90,9 +101,9 @@ def train_one_epoch(
         else:
             memory_cache, pose_out = model(samples, captions, encode_and_save=True,paf_samples=pafs)
             if pose_out is not None:
-                for i in range(3):
+                for k in range(3):
                     pose_loss,target_arm,pred_arm = \
-                        get_pose_loss(pose_out['{0}_arms'.format(i)],pose_out['{0}_arm_score'.format(i)],target_arms,i)
+                        get_pose_loss(pose_out['{0}_arms'.format(k)], pose_out['{0}_arm_score'.format(k)], target_arms, k)
                     loss_dict.update(pose_loss)
 
             # Pass in the encodings of memory_cache['tokenized'].
@@ -103,6 +114,71 @@ def train_one_epoch(
             # the encodings of memory_cache['tokenized'] and manually set it
             # in the function below.
             outputs = model(samples, captions, encode_and_save=False, memory_cache=memory_cache,arm_query=target_arm, encodings_of_tokenized=memory_cache['tokenized']._encodings)
+
+            # Save predictions to lists and write them into a file
+            if SAVE_MDETR_PREDICTIONS:
+                for j in range(len(targets)):
+                    current_pred_logits = outputs['pred_logits'][j].detach().cpu()
+                    current_pred_boxes = outputs['pred_boxes'][j].detach().cpu()
+                    current_img_name = targets[j]['img_name']
+
+                    values, indices = current_pred_logits.softmax(-1).max(-1)
+
+                    num_boxes = current_pred_logits.shape[0]
+
+                    # Append each prediction for current image separately into lists
+                    for k in range(num_boxes):
+                        score = values[k]
+                        pred_class = indices[k]
+
+                        # cxcywh to xmin, ymin, xmax, ymax
+                        box = current_pred_boxes[k]
+                        cx, cy, w, h = box
+                        xmin, ymin, xmax, ymax = [cx - w/2, cy - h/2, cx + w/2, cy + h/2]
+
+                        list_for_pred_scores.append(score.item())
+                        list_for_pred_classes.append(pred_class.item())
+                        list_for_img_names.append(current_img_name)
+                        list_for_xmin.append(xmin.item())
+                        list_for_ymin.append(ymin.item())
+                        list_for_xmax.append(xmax.item())
+                        list_for_ymax.append(ymax.item())
+
+                # ???
+                del outputs
+                metric_logger.update(loss=-1)
+                metric_logger.update(lr=-1)
+                metric_logger.update(lr_backbone=-1)
+                metric_logger.update(lr_text_encoder=-1)
+
+                # process lists and store contents into a dataframe
+                if i == len(data_loader) - 1:
+                    print("Storing MDETR Predictions to Lists")
+                    df = pd.DataFrame({'img_name': list_for_img_names,
+                                       'pred_score': list_for_pred_scores,
+                                       'pred_class': list_for_pred_classes,
+                                       'xmin': list_for_xmin,
+                                       'ymin': list_for_ymin,
+                                       'xmax': list_for_xmax,
+                                       'ymax': list_for_ymax
+                                       })
+                    df.astype({'img_name': 'str',
+                               'pred_score': 'float',
+                               'pred_class': 'int',
+                               'xmin': 'float',
+                               'ymin': 'float',
+                               'xmax': 'float',
+                               'ymax': 'float'})
+
+                    # save dataframe to disk as a csv file
+                    print("Writing MDETR Predictions to Disk")
+                    file_name = 'mdetr_predictions_training_set.csv'
+                    print(file_name)
+                    df.to_csv(file_name, index=False)
+                    raise NotImplementedError('Done')
+                continue
+
+
             if pose_out is not None:
                 outputs.update({'pred_arm':pred_arm}) #last layer
                 outputs.update(pose_out)

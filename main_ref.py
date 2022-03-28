@@ -24,6 +24,7 @@ from models import build_model
 from models.postprocessors import build_postprocessors
 from datasets.yourefit import ReferDataset, YouRefItEvaluator
 from datasets.coco import make_coco_transforms
+from magic_numbers import *
 
 
 def string_to_bool(string):
@@ -367,16 +368,12 @@ def main(args):
 
     dataset_train, sampler_train, data_loader_train = None, None, None
     if not args.eval:
-        # dataset_train = ConcatDataset(
-        #     [build_dataset(name, image_set="train", args=args) for name in args.combine_datasets]
-        # )
-        # input_transform = Compose([
-        #     ToTensor(),
-        #     Normalize(
-        #         mean=[0.485, 0.456, 0.406],
-        #         std=[0.229, 0.224, 0.225])
-        # ])
-        input_transform = make_coco_transforms('train', False)
+        # Deactivate transformations such as random flip and random crop when
+        # saving the predictions of mdetr for distillation
+        if SAVE_MDETR_PREDICTIONS:
+            input_transform = make_coco_transforms('val', False)
+        else:
+            input_transform = make_coco_transforms('train', False)
         dataset_train = ReferDataset(data_root='.',
                         split_root='.',
                         dataset='yourefit',
