@@ -1,1 +1,3 @@
 SAVE_MDETR_PREDICTIONS = False
+USE_MDETR_PREDICTIONS_AS_GROUNDTRUTHS = True
+MDETR_PREDICTION_PATH = 'processed_mdetr_predictions_training_set.csv'

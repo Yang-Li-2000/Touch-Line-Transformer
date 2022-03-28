@@ -3,6 +3,7 @@
 """
 YouRefIt referring image PyTorch dataset.
 """
+import pandas as pd
 from PIL import Image
 import os
 import sys
@@ -13,7 +14,6 @@ import tqdm
 import math
 import torch
 import random
-# import h5py
 import numpy as np
 import os.path as osp
 import scipy.io as sio
@@ -28,16 +28,17 @@ import json
 import pickle5 as pickle
 import re
 import util.dist as dist
-from IPython import embed
-#sys.modules['utils'] = utils
 from transformers import RobertaTokenizerFast
 sys.path.append('./datasets')
 from .yourefit_token import match_pos
 import copy
 from util.box_ops import generalized_box_iou
+from magic_numbers import *
 
 cv2.setNumThreads(0)
 
+
+mdetr_predictions = pd.read_csv(MDETR_PREDICTION_PATH)
 
 def create_positive_map(tokenized, tokens_positive):
     """construct a map such that positive_map[i,j] = True iff box i is associated to token j"""
@@ -127,7 +128,17 @@ class ReferDataset(data.Dataset):
                 while True:
                     img_name = f.readline()
                     if img_name:
-                        self.images.append(img_name[:-1])
+                        if USE_MDETR_PREDICTIONS_AS_GROUNDTRUTHS and self.split == 'train':
+                            # Only for the training set:
+                            # Ignore images without mdetr foreground predictions
+                            # Check if current image has mdetr foreground prediction.
+                            # If it does, append its name into image list.
+                            has_mdetr_foreground_prediction = \
+                                mdetr_predictions[mdetr_predictions['img_name'] == img_name[:-1]].shape[0] > 0
+                            if has_mdetr_foreground_prediction:
+                                self.images.append(img_name[:-1])
+                        else:
+                            self.images.append(img_name[:-1])
                     else:
                         break
             f.close()
@@ -168,8 +179,21 @@ class ReferDataset(data.Dataset):
         token_pos = [token_pos]
         bbox = np.array(bbox, dtype=int) #x1y1x2y2
         img_path = osp.join(self.im_dir, img_name+'.jpg')
-        #img = cv2.imread(img_path)
         img = Image.open(img_path).convert('RGB')
+        # replace bbox with MDETR predictions
+        if USE_MDETR_PREDICTIONS_AS_GROUNDTRUTHS and self.split == 'train':
+            width = img.width
+            height = img.height
+            df_for_current_image = mdetr_predictions[mdetr_predictions['img_name'] == img_name]
+            if df_for_current_image.shape[0] > 0:
+                xmin, ymin, xmax, ymax = [df_for_current_image.xmin, df_for_current_image.ymin,
+                                          df_for_current_image.xmax, df_for_current_image.ymax]
+                xmin, ymin, xmax, ymax = [xmin * width, ymin * height, xmax * width, ymax * height]
+                xmin, ymin, xmax, ymax = [int(xmin), int(ymin), int(xmax), int(ymax)]
+                bbox = np.array([xmin, ymin, xmax, ymax])
+            else:
+                raise RuntimeError('Using MDETR predictions as groundtruths, but current image does not have any mdetr foreground prediction')
+
         htmapdir = self.im_dir.replace('images', 'paf')
         htmapfile = img_name + '_rendered.png'
         htmap_path = osp.join(htmapdir, htmapfile)

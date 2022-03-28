@@ -310,6 +310,12 @@ def main(args):
 
     print(args)
 
+    print()
+    print()
+    print('USE_MDETR_PREDICTIONS_AS_GROUNDTRUTHS:', USE_MDETR_PREDICTIONS_AS_GROUNDTRUTHS)
+    print()
+    print()
+
     device = torch.device(args.device)
     output_dir = Path(args.output_dir)
 
