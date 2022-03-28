@@ -93,8 +93,16 @@ def train_one_epoch(
                 for i in range(3):
                     pose_loss,target_arm,pred_arm = \
                         get_pose_loss(pose_out['{0}_arms'.format(i)],pose_out['{0}_arm_score'.format(i)],target_arms,i)
-                    loss_dict.update(pose_loss) 
-            outputs = model(samples, captions, encode_and_save=False, memory_cache=memory_cache,arm_query=target_arm)
+                    loss_dict.update(pose_loss)
+
+            # Pass in the encodings of memory_cache['tokenized'].
+            # Otherwise, memory_cache['tokenized']._encodings passed in can
+            # sometimes get lost inside the function below.
+            # Specifically, memory_cache['tokenized']._encodings inside the
+            # function below sometimes become empty if not pass in
+            # the encodings of memory_cache['tokenized'] and manually set it
+            # in the function below.
+            outputs = model(samples, captions, encode_and_save=False, memory_cache=memory_cache,arm_query=target_arm, encodings_of_tokenized=memory_cache['tokenized']._encodings)
             if pose_out is not None:
                 outputs.update({'pred_arm':pred_arm}) #last layer
                 outputs.update(pose_out)

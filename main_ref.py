@@ -25,6 +25,15 @@ from models.postprocessors import build_postprocessors
 from datasets.yourefit import ReferDataset, YouRefItEvaluator
 from datasets.coco import make_coco_transforms
 
+
+def string_to_bool(string):
+    if string.lower() == 'false':
+        return False
+    elif string.lower() == 'true':
+        return True
+    else:
+        raise NotImplementedError()
+
 def get_args_parser():
     parser = argparse.ArgumentParser("Set transformer detector", add_help=False)
     parser.add_argument("--run_name", default="", type=str)
@@ -269,6 +278,12 @@ def get_args_parser():
     # Distributed training parameters
     parser.add_argument("--world-size", default=1, type=int, help="number of distributed processes")
     parser.add_argument("--dist-url", default="env://", help="url used to set up distributed training")
+
+
+    parser.add_argument('--pose', type=string_to_bool, default=True)
+
+
+
     return parser
 
 

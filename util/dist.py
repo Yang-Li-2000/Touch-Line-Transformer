@@ -231,8 +231,15 @@ def init_distributed_mode(args):
     args.dist_backend = "nccl"
     print("| distributed init (rank {}): {}".format(args.rank, args.dist_url), flush=True)
 
-    dist.init_process_group(
-        backend=args.dist_backend, init_method=args.dist_url, world_size=args.world_size, rank=args.rank
-    )
+    try:
+        torch.distributed.init_process_group(backend=args.dist_backend, init_method=args.dist_url,
+                                         world_size=args.world_size, rank=args.rank)
+    except:
+        print("Setting MASTER_ADDR to localhost and MASTER_PORT to 8765")
+        os.environ['MASTER_ADDR'] = 'localhost'
+        os.environ['MASTER_PORT'] = '8765'
+        torch.distributed.init_process_group(backend=args.dist_backend, init_method=args.dist_url,
+                                             world_size=args.world_size, rank=args.rank)
+
     dist.barrier()
     setup_for_distributed(args.rank == 0)

@@ -149,7 +149,7 @@ class MDETR(nn.Module):
         self.qa_dataset = qa_dataset
         self.split_qa_heads = split_qa_heads        
 
-    def forward(self, samples: NestedTensor, captions, encode_and_save=True, memory_cache=None,paf_samples=None,arm_query=None,img_names=None):
+    def forward(self, samples: NestedTensor, captions, encode_and_save=True, memory_cache=None,paf_samples=None,arm_query=None,img_names=None, encodings_of_tokenized=None):
         """The forward expects a NestedTensor, which consists of:
            - samples.tensor: batched images, of shape [batch_size x 3 x H x W]
            - samples.mask: a binary mask of shape [batch_size x H x W], containing 1 on padded pixels
@@ -240,6 +240,12 @@ class MDETR(nn.Module):
                 img_name = img_names
             )
             out = {}
+
+            # Manually set the encodings of memory_cache['tokenized'], because
+            # sometimes it gets empty after passing it into the
+            # forward function here.
+            if encodings_of_tokenized is not None:
+                memory_cache['tokenized']._encodings = encodings_of_tokenized
 
             outputs_class = self.class_embed(hs)
             outputs_coord = self.bbox_embed(hs).sigmoid()
@@ -955,7 +961,8 @@ def build(args):
         contrastive_align_loss=args.contrastive_align_loss,
         qa_dataset=qa_dataset,
         split_qa_heads=args.split_qa_heads,
-        predict_final=args.predict_final
+        predict_final=args.predict_final,
+        pose=args.pose
     )
     if args.mask_model != "none":
         model = DETRsegm(
