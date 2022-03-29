@@ -320,13 +320,15 @@ def main(args):
     print()
     print()
 
+    # Initialize tensorboard
     tensorboard_log_dir = 'runs'
     if args.eval:
         start_index = args.load.find('/')
         end_index = args.load.rfind('/')
         experiment_name = args.load[start_index+1:end_index]
     else:
-        raise NotImplementedError()
+        start_index = args.output_dir.rfind('/')
+        experiment_name = args.output_dir[start_index + 1:]
     writer = SummaryWriter(tensorboard_log_dir + '/' + experiment_name)
 
     device = torch.device(args.device)
@@ -554,15 +556,15 @@ def main(args):
             unscaled_arm_score_loss = test_stats['yourefit_arm_score_loss_' + str(pose_decoder_last_layer_index) + '_unscaled']
 
             # Write losses to tensorboard
-            writer.add_scalar('Loss/total', total_loss, epoch_number)
+            writer.add_scalar('Loss/valid_total', total_loss, epoch_number)
 
-            writer.add_scalar('Loss_unscaled/ce', unscaled_ce_loss, epoch_number)
-            writer.add_scalar('Loss_unscaled/giou', unscaled_giou_loss, epoch_number)
-            writer.add_scalar('Loss_unscaled/box', unscaled_box_loss, epoch_number)
-            writer.add_scalar('Loss_unscaled/contrastive_align', unscaled_contrastive_align_loss, epoch_number)
+            writer.add_scalar('Loss_valid_unscaled/ce', unscaled_ce_loss, epoch_number)
+            writer.add_scalar('Loss_valid_unscaled/giou', unscaled_giou_loss, epoch_number)
+            writer.add_scalar('Loss_valid_unscaled/box', unscaled_box_loss, epoch_number)
+            writer.add_scalar('Loss_valid_unscaled/contrastive_align', unscaled_contrastive_align_loss, epoch_number)
 
-            writer.add_scalar('Loss_unscaled/arm', unscaled_arm_loss, epoch_number)
-            writer.add_scalar('Loss_unscaled/arm_score', unscaled_arm_score_loss, epoch_number)
+            writer.add_scalar('Loss_valid_unscaled/arm', unscaled_arm_loss, epoch_number)
+            writer.add_scalar('Loss_valid_unscaled/arm_score', unscaled_arm_score_loss, epoch_number)
 
 
         log_stats = {
@@ -594,6 +596,43 @@ def main(args):
             max_norm=args.clip_max_norm,
             model_ema=model_ema,
         )
+
+        # Write train stats to tensorboard
+        if dist.get_rank() == 0:
+
+            # Find out epoch number
+            epoch_number = epoch
+
+            # Find out lr
+            lr = train_stats['lr']
+            writer.add_scalar('Misc_train/lr', lr, epoch_number)
+
+            # Find out losses
+            total_loss = train_stats['loss']
+
+            unscaled_ce_loss = train_stats['loss_ce_unscaled']
+            unscaled_giou_loss = train_stats['loss_giou_unscaled']
+            unscaled_box_loss = train_stats['loss_bbox_unscaled']
+            unscaled_contrastive_align_loss =  train_stats['loss_contrastive_align_unscaled']
+
+            if dist.get_world_size() > 1:
+                pose_decoder_last_layer_index = len(model.module.pose_decoder) - 1
+            else:
+                pose_decoder_last_layer_index = len(model.pose_decoder) - 1
+            # unscaled_pose_loss = train_stats['pose_loss_' + str(pose_decoder_last_layer_index) + '_unscaled']
+            unscaled_arm_loss = train_stats['arm_loss_' + str(pose_decoder_last_layer_index) + '_unscaled']
+            unscaled_arm_score_loss = train_stats['arm_score_loss_' + str(pose_decoder_last_layer_index) + '_unscaled']
+
+            # Write losses to tensorboard
+            writer.add_scalar('Loss/train_total', total_loss, epoch_number)
+
+            writer.add_scalar('Loss_train_unscaled/ce', unscaled_ce_loss, epoch_number)
+            writer.add_scalar('Loss_train_unscaled/giou', unscaled_giou_loss, epoch_number)
+            writer.add_scalar('Loss_train_unscaled/box', unscaled_box_loss, epoch_number)
+            writer.add_scalar('Loss_train_unscaled/contrastive_align', unscaled_contrastive_align_loss, epoch_number)
+
+            writer.add_scalar('Loss_train_unscaled/arm', unscaled_arm_loss, epoch_number)
+            writer.add_scalar('Loss_train_unscaled/arm_score', unscaled_arm_score_loss, epoch_number)
 
 
         if args.output_dir:
@@ -636,6 +675,51 @@ def main(args):
                 test_stats.update({item.dataset_name + "_" + k: v for k, v in curr_test_stats.items()})
         else:
             test_stats = {}
+
+        # Write test stats to tensorboard
+        if len(test_stats) > 0 \
+                and dist.get_rank() == 0 \
+                and len(args.combine_datasets_val) == 1 \
+                and args.combine_datasets_val[0] == 'yourefit':
+
+            # Find out epoch number
+            epoch_number = epoch
+            epoch_number = int(epoch_number)
+
+            # Find out precisions at different IoU thresholds
+            precisions = test_stats['yourefit_yourefit']
+            p25, p50, p75 = precisions
+            # Write precisions to tensorboard
+            writer.add_scalar('Precision/precision_at_0.25', p25, epoch_number)
+            writer.add_scalar('Precision/precision_at_0.50', p50, epoch_number)
+            writer.add_scalar('Precision/precision_at_0.75', p75, epoch_number)
+
+            # Find out  losses
+            total_loss = test_stats['yourefit_loss']
+
+            unscaled_ce_loss = test_stats['yourefit_loss_ce_unscaled']
+            unscaled_giou_loss = test_stats['yourefit_loss_giou_unscaled']
+            unscaled_box_loss = test_stats['yourefit_loss_bbox_unscaled']
+            unscaled_contrastive_align_loss =  test_stats['yourefit_loss_contrastive_align_unscaled']
+
+            if dist.get_world_size() > 1:
+                pose_decoder_last_layer_index = len(model.module.pose_decoder) - 1
+            else:
+                pose_decoder_last_layer_index = len(model.pose_decoder) - 1
+            # unscaled_pose_loss = test_stats['yourefit_pose_loss_' + str(pose_decoder_last_layer_index) + '_unscaled']
+            unscaled_arm_loss = test_stats['yourefit_arm_loss_' + str(pose_decoder_last_layer_index) + '_unscaled']
+            unscaled_arm_score_loss = test_stats['yourefit_arm_score_loss_' + str(pose_decoder_last_layer_index) + '_unscaled']
+
+            # Write losses to tensorboard
+            writer.add_scalar('Loss/valid_total', total_loss, epoch_number)
+
+            writer.add_scalar('Loss_valid_unscaled/ce', unscaled_ce_loss, epoch_number)
+            writer.add_scalar('Loss_valid_unscaled/giou', unscaled_giou_loss, epoch_number)
+            writer.add_scalar('Loss_valid_unscaled/box', unscaled_box_loss, epoch_number)
+            writer.add_scalar('Loss_valid_unscaled/contrastive_align', unscaled_contrastive_align_loss, epoch_number)
+
+            writer.add_scalar('Loss_valid_unscaled/arm', unscaled_arm_loss, epoch_number)
+            writer.add_scalar('Loss_valid_unscaled/arm_score', unscaled_arm_score_loss, epoch_number)
 
         log_stats = {
             **{f"train_{k}": v for k, v in train_stats.items()},
