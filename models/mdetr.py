@@ -888,7 +888,7 @@ class SetCriterion(nn.Module):
         return losses
 
 
-def get_pose_loss(arm,arm_class,target_arm,idx=0):
+def get_pose_loss(arm, arm_class, target_arm, idx=0):
     bs,num = arm.shape[0],arm.shape[1]
     null_list = [i for i in range(bs) if target_arm[i].shape[0]==0]
     for i in null_list:
@@ -912,8 +912,7 @@ def get_pose_loss(arm,arm_class,target_arm,idx=0):
         arm_loss = arm_loss + min_dist[i]
     
     score_loss = class_criterion(arm_class.softmax(dim=2).transpose(2,1), arm_cls_label).sum() / num
-        #if arm_dist
-    pose_loss = 3* (arm_loss + 0.5 * score_loss)
+    pose_loss = 3 * arm_loss + 1.5 * score_loss
     arm = arm.unsqueeze(2)
     matched_arm =  torch.cat([i[j] for i,j in zip(arm,min_idx)], dim=0)
     

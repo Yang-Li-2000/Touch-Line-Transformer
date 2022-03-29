@@ -25,6 +25,7 @@ from models.postprocessors import build_postprocessors
 from datasets.yourefit import ReferDataset, YouRefItEvaluator
 from datasets.coco import make_coco_transforms
 from magic_numbers import *
+from torch.utils.tensorboard import SummaryWriter
 
 
 def string_to_bool(string):
@@ -262,6 +263,9 @@ def get_args_parser():
     )
     parser.add_argument("--contrastive_loss_coef", default=0.1, type=float)
     parser.add_argument("--contrastive_align_loss_coef", default=1, type=float)
+    # TODO: the following two lines are not implemented yet
+    # parser.add_argument('--arm_loss_coef', default=3, type=float)
+    # parser.add_argument('--arm_score_loss_coef', default=1.5, type=float)
 
     # Run specific
 
@@ -315,6 +319,15 @@ def main(args):
     print('USE_MDETR_PREDICTIONS_AS_GROUNDTRUTHS:', USE_MDETR_PREDICTIONS_AS_GROUNDTRUTHS)
     print()
     print()
+
+    tensorboard_log_dir = 'runs'
+    if args.eval:
+        start_index = args.load.find('/')
+        end_index = args.load.rfind('/')
+        experiment_name = args.load[start_index+1:end_index]
+    else:
+        raise NotImplementedError()
+    writer = SummaryWriter(tensorboard_log_dir + '/' + experiment_name)
 
     device = torch.device(args.device)
     output_dir = Path(args.output_dir)
@@ -506,6 +519,51 @@ def main(args):
                 args=args,
             )
             test_stats.update({item.dataset_name + "_" + k: v for k, v in curr_test_stats.items()})
+
+        # Write Precisions to tensorboard
+        if len(args.combine_datasets_val) == 1 and args.combine_datasets_val[0] == 'yourefit' and dist.get_rank() == 0:
+
+            # Find out epoch number
+            start_index = args.load.rfind('/') + len('/checkpoint')
+            end_index = args.load.find('.pth')
+            epoch_number = args.load[start_index:end_index]
+            epoch_number = int(epoch_number)
+
+            # Find out precisions at different IoU thresholds
+            precisions = test_stats['yourefit_yourefit']
+            p25, p50, p75 = precisions
+            # Write precisions to tensorboard
+            writer.add_scalar('Precision/precision_at_0.25', p25, epoch_number)
+            writer.add_scalar('Precision/precision_at_0.50', p50, epoch_number)
+            writer.add_scalar('Precision/precision_at_0.75', p75, epoch_number)
+
+            # Find out  losses
+            total_loss = test_stats['yourefit_loss']
+
+            unscaled_ce_loss = test_stats['yourefit_loss_ce_unscaled']
+            unscaled_giou_loss = test_stats['yourefit_loss_giou_unscaled']
+            unscaled_box_loss = test_stats['yourefit_loss_bbox_unscaled']
+            unscaled_contrastive_align_loss =  test_stats['yourefit_loss_contrastive_align_unscaled']
+
+            if dist.get_world_size() > 1:
+                pose_decoder_last_layer_index = len(model.module.pose_decoder) - 1
+            else:
+                pose_decoder_last_layer_index = len(model.pose_decoder) - 1
+            # unscaled_pose_loss = test_stats['yourefit_pose_loss_' + str(pose_decoder_last_layer_index) + '_unscaled']
+            unscaled_arm_loss = test_stats['yourefit_arm_loss_' + str(pose_decoder_last_layer_index) + '_unscaled']
+            unscaled_arm_score_loss = test_stats['yourefit_arm_score_loss_' + str(pose_decoder_last_layer_index) + '_unscaled']
+
+            # Write losses to tensorboard
+            writer.add_scalar('Loss/total', total_loss, epoch_number)
+
+            writer.add_scalar('Loss_unscaled/ce', unscaled_ce_loss, epoch_number)
+            writer.add_scalar('Loss_unscaled/giou', unscaled_giou_loss, epoch_number)
+            writer.add_scalar('Loss_unscaled/box', unscaled_box_loss, epoch_number)
+            writer.add_scalar('Loss_unscaled/contrastive_align', unscaled_contrastive_align_loss, epoch_number)
+
+            writer.add_scalar('Loss_unscaled/arm', unscaled_arm_loss, epoch_number)
+            writer.add_scalar('Loss_unscaled/arm_score', unscaled_arm_score_loss, epoch_number)
+
 
         log_stats = {
             **{f"test_{k}": v for k, v in test_stats.items()},
