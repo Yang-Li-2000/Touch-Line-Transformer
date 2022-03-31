@@ -39,6 +39,8 @@ cv2.setNumThreads(0)
 
 
 mdetr_predictions = pd.read_csv(MDETR_PREDICTION_PATH)
+eye_to_fingertip_annotation_df_train = pd.read_csv(EYE_TO_FINGERTIP_ANNOTATION_TRAIN_PATH)
+eye_to_fingertip_annotation_df_valid = pd.read_csv(EYE_TO_FINGERTIP_ANNOTATION_VALID_PATH)
 
 def create_positive_map(tokenized, tokens_positive):
     """construct a map such that positive_map[i,j] = True iff box i is associated to token j"""
@@ -128,6 +130,8 @@ class ReferDataset(data.Dataset):
                 while True:
                     img_name = f.readline()
                     if img_name:
+                        if USE_MDETR_PREDICTIONS_AS_GROUNDTRUTHS and REPLACE_ARM_WITH_EYE_TO_FINGERTIP:
+                            raise NotImplementedError()
                         if USE_MDETR_PREDICTIONS_AS_GROUNDTRUTHS and self.split == 'train':
                             # Only for the training set:
                             # Ignore images without mdetr foreground predictions
@@ -136,6 +140,11 @@ class ReferDataset(data.Dataset):
                             has_mdetr_foreground_prediction = \
                                 mdetr_predictions[mdetr_predictions['img_name'] == img_name[:-1]].shape[0] > 0
                             if has_mdetr_foreground_prediction:
+                                self.images.append(img_name[:-1])
+                        elif REPLACE_ARM_WITH_EYE_TO_FINGERTIP and self.split == 'train':
+                            has_eye_to_fingertip_annotation = \
+                                eye_to_fingertip_annotation_df_train[eye_to_fingertip_annotation_df_train['name'] == img_name[:-1]].shape[0] > 0
+                            if has_eye_to_fingertip_annotation:
                                 self.images.append(img_name[:-1])
                         else:
                             self.images.append(img_name[:-1])
@@ -208,6 +217,40 @@ class ReferDataset(data.Dataset):
         pt = cv2.resize(pt, (256,256))
         pt = np.reshape(pt, (3, 256, 256))
         arm = self.arm_data[img_name]
+
+        # Replace arm coordinates with eye and fingertip coordinates
+        if REPLACE_ARM_WITH_EYE_TO_FINGERTIP:
+            if self.dataset == 'yourefit':
+                # Determine the split of dataset
+                if self.split == 'train':
+                    df = eye_to_fingertip_annotation_df_train
+                elif self.split == 'val':
+                    df = eye_to_fingertip_annotation_df_valid
+                else:
+                    raise NotImplementedError('replace arm with eye to fingertip is only implemented for yourefit train and valid splits')
+                # Find out the coordinates of eye and fingertip
+                df_for_current_image = df[df['name'] == img_name]
+                if df_for_current_image.shape[0] == 0:
+                    if self.split == 'train':
+                        # For the training set, raise error if an image does not have eye to fingertip annotations.
+                        raise RuntimeError('Missing eye to fingertip annotation for image: ' + img_name)
+                    else:
+                        # For the valid set, set coordinates to negative values to signal missing annotations.
+                        eye_x = -img.width
+                        eye_y = -img.height
+                        fingertip_x = -img.width
+                        fingertip_y = -img.height
+                else:
+                    # If current image has eye to fingertip annotation, get the coordinates from annotations
+                    eye_x = df_for_current_image.iloc[0].eye_x
+                    eye_y = df_for_current_image.iloc[0].eye_y
+                    fingertip_x = df_for_current_image.iloc[0].fingertip_x
+                    fingertip_y = df_for_current_image.iloc[0].fingertip_y
+                # Replace arm coordinates with eye and fingertip coordinates
+                arm = [eye_x, eye_y, fingertip_x, fingertip_y]
+            else:
+                raise NotImplementedError('replace arm with eye to fingertip not implemented for current dataset')
+
         return img, pt, ht, phrase, bbox, token_pos, arm, img_name
 
     def tokenize_phrase(self, phrase):
@@ -235,8 +278,7 @@ class ReferDataset(data.Dataset):
         target['tokens_positive'] = token_pos
         target['labels'] = torch.tensor([1])
         target['arm'] = torch.tensor(arm).flatten()
-        #print(target['arm'].shape)
-        assert target['arm'].shape[0] ==4
+        assert target['arm'].shape[0] == 4
 
         assert len(target["boxes"]) == len(target["tokens_positive"])
         tokenized = self.tokenizer(phrase, return_tensors="pt")

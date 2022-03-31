@@ -263,9 +263,6 @@ def get_args_parser():
     )
     parser.add_argument("--contrastive_loss_coef", default=0.1, type=float)
     parser.add_argument("--contrastive_align_loss_coef", default=1, type=float)
-    # TODO: the following two lines are not implemented yet
-    # parser.add_argument('--arm_loss_coef', default=3, type=float)
-    # parser.add_argument('--arm_score_loss_coef', default=1.5, type=float)
 
     # Run specific
 
@@ -317,6 +314,7 @@ def main(args):
     print()
     print()
     print('USE_MDETR_PREDICTIONS_AS_GROUNDTRUTHS:', USE_MDETR_PREDICTIONS_AS_GROUNDTRUTHS)
+    print('REPLACE_ARM_WITH_EYE_TO_FINGERTIP:    ', REPLACE_ARM_WITH_EYE_TO_FINGERTIP)
     print()
     print()
 

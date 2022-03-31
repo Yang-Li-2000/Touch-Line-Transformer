@@ -25,8 +25,7 @@ from .segmentation import DETRsegm, dice_loss, sigmoid_focal_loss
 from .transformer import build_transformer, TransformerEncoder, TransformerEncoderLayer, TransformerDecoderLayer
 #from .transformer_ori import TransformerDecoderLayer
 from util.box_ops import box_cxcywh_to_xyxy, generalized_box_iou
-
-from IPython import embed
+from magic_numbers import *
 
 
 global img_size_pairs
@@ -889,35 +888,51 @@ class SetCriterion(nn.Module):
 
 
 def get_pose_loss(arm, arm_class, target_arm, idx=0):
-    bs,num = arm.shape[0],arm.shape[1]
-    null_list = [i for i in range(bs) if target_arm[i].shape[0]==0]
+
+    loss_scaling_factor_for_missing_annotations = 1
+
+    # Handle missing eye to fingertip annotations in the yourefit valid set
+    if REPLACE_ARM_WITH_EYE_TO_FINGERTIP:
+        # Determine which images in the batch do not have eye to fingertip annotations
+        missing_eye_to_fingertip_annotations = [bool((k < 0).sum() > 0) for k in target_arm]
+        # Handle missing annotations by setting predictions equal to targets
+        for i in range(len(missing_eye_to_fingertip_annotations)):
+            if missing_eye_to_fingertip_annotations[i]:
+                arm[i] = target_arm[i].repeat(arm.shape[1], 1)
+        num_images_with_missing_annotations = 0
+        for i in range(len(missing_eye_to_fingertip_annotations)):
+            if missing_eye_to_fingertip_annotations[i]:
+                num_images_with_missing_annotations += 1
+        loss_scaling_factor_for_missing_annotations = (len(target_arm) - num_images_with_missing_annotations) / len(
+            target_arm)
+
+    bs,num = arm.shape[0], arm.shape[1]
+    null_list = [i for i in range(bs) if target_arm[i].shape[0] == 0]
     for i in null_list:
-        target_arm[i] = torch.tensor([[.0,.0, 1.,1.]]).cuda() 
-    
-    target_arm = torch.cat((target_arm),0)
-    l1_dist = F.l1_loss(arm,target_arm.unsqueeze(1).repeat(1, 10, 1),reduction='none').sum(dim=2)    
-    min_dist, min_idx = torch.min(l1_dist,dim=1)
+        target_arm[i] = torch.tensor([[0.0, 0.0, 1.0, 1.0]]).to(arm.device)
 
-    
-    CLS_WEIGHTS = [0.2,0.8]  
-    class_criterion = nn.CrossEntropyLoss(torch.Tensor(CLS_WEIGHTS).cuda(), reduction='none')
-    arm_cls_label = torch.zeros((bs,num), dtype=torch.long).cuda()
+    target_arm = torch.cat(target_arm, 0)
+    l1_dist = F.l1_loss(arm,target_arm.unsqueeze(1).repeat(1, 10, 1), reduction='none').sum(dim=2)
+    min_dist, min_idx = torch.min(l1_dist, dim=1)
 
+    cls_weights = [0.2, 0.8]
+    class_criterion = nn.CrossEntropyLoss(torch.Tensor(cls_weights).to(arm.device), reduction='none')
+    arm_cls_label = torch.zeros((bs, num), dtype=torch.long).to(arm.device)
 
     arm_loss = torch.tensor(0, dtype=target_arm.dtype, device=target_arm.device)
     for i in range(bs):
         if i in null_list:
             continue
-        arm_cls_label[i,min_idx[i]] = 1
+        arm_cls_label[i, min_idx[i]] = 1
         arm_loss = arm_loss + min_dist[i]
     
-    score_loss = class_criterion(arm_class.softmax(dim=2).transpose(2,1), arm_cls_label).sum() / num
-    pose_loss = 3 * arm_loss + 1.5 * score_loss
+    score_loss = class_criterion(arm_class.softmax(dim=2).transpose(2, 1), arm_cls_label).sum() / (num * loss_scaling_factor_for_missing_annotations)
+    pose_loss = ARM_LOSS_COEF * arm_loss + ARM_SCORE_LOSS_COEF * score_loss
     arm = arm.unsqueeze(2)
-    matched_arm =  torch.cat([i[j] for i,j in zip(arm,min_idx)], dim=0)
+    matched_arm = torch.cat([i[j] for i,j in zip(arm,min_idx)], dim=0)
     
     for i in null_list:
-        matched_arm[i] = torch.tensor([.0,.0,.0,.0]).cuda()
+        matched_arm[i] = torch.tensor([0.0, 0.0, 0.0, 0.0]).to(arm.device)
     
     return {'pose_loss_{0}'.format(idx):pose_loss,'arm_loss_{0}'.format(idx):arm_loss,'arm_score_loss_{0}'.format(idx):score_loss},target_arm, matched_arm
 
@@ -945,7 +960,7 @@ def build(args):
     qa_dataset = None
 
     backbone = build_backbone(args)
-    
+
 
     transformer = build_transformer(args)
     args.contrastive_align_loss = True
