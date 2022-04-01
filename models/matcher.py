@@ -72,11 +72,7 @@ class HungarianMatcher(nn.Module):
         cost_bbox = torch.cdist(out_bbox, tgt_bbox, p=1)
         #assert cost_class.shape == cost_bbox.shape
 
-        from IPython import embed
         # Compute the giou cost betwen boxes
-        boxes1 = box_cxcywh_to_xyxy(out_bbox)
-        if not (boxes1[:, 2:] >= boxes1[:, :2]).all():
-            embed()
         cost_giou = -generalized_box_iou(box_cxcywh_to_xyxy(out_bbox), box_cxcywh_to_xyxy(tgt_bbox))
         # Final cost matrix
         C = self.cost_bbox * cost_bbox  + self.cost_giou * cost_giou + self.cost_class * cost_class
