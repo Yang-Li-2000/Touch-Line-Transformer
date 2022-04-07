@@ -533,7 +533,10 @@ def main(args):
             start_index = args.load.rfind('/') + len('/checkpoint')
             end_index = args.load.find('.pth')
             epoch_number = args.load[start_index:end_index]
-            epoch_number = int(epoch_number)
+            try:
+                epoch_number = int(epoch_number)
+            except:
+                epoch_number = -1
 
             # Find out precisions at different IoU thresholds
             precisions = test_stats['yourefit_yourefit']

@@ -13,6 +13,8 @@ import os
 import torch
 import torch.distributed as dist
 
+import pickle
+
 _LOCAL_PROCESS_GROUP = None
 
 
@@ -37,54 +39,37 @@ def all_gather(data):
     Returns:
         list[data]: list of data gathered from each rank
     """
-
     world_size = get_world_size()
     if world_size == 1:
         return [data]
 
-    cpu_group = None
-    if os.getenv("MDETR_CPU_REDUCE") == "1":
-        cpu_group = _get_global_gloo_group()
-
-    buffer = io.BytesIO()
-    torch.save(data, buffer)
-    data_view = buffer.getbuffer()
-    device = "cuda" if cpu_group is None else "cpu"
-    tensor = torch.ByteTensor(data_view).to(device)
+    # serialized to a Tensor
+    buffer = pickle.dumps(data)
+    storage = torch.ByteStorage.from_buffer(buffer)
+    tensor = torch.ByteTensor(storage).to("cuda")
 
     # obtain Tensor size of each rank
-    local_size = torch.tensor([tensor.numel()], device=device, dtype=torch.long)
-    size_list = [torch.tensor([0], device=device, dtype=torch.long) for _ in range(world_size)]
-    if cpu_group is None:
-        dist.all_gather(size_list, local_size)
-    else:
-        print("gathering on cpu")
-        dist.all_gather(size_list, local_size, group=cpu_group)
+    local_size = torch.tensor([tensor.numel()], device="cuda")
+    size_list = [torch.tensor([0], device="cuda") for _ in range(world_size)]
+    dist.all_gather(size_list, local_size)
     size_list = [int(size.item()) for size in size_list]
     max_size = max(size_list)
-    assert isinstance(local_size.item(), int)
-    local_size = int(local_size.item())
 
     # receiving Tensor from all ranks
     # we pad the tensor because torch all_gather does not support
     # gathering tensors of different shapes
     tensor_list = []
     for _ in size_list:
-        tensor_list.append(torch.empty((max_size,), dtype=torch.uint8, device=device))
+        tensor_list.append(torch.empty((max_size,), dtype=torch.uint8, device="cuda"))
     if local_size != max_size:
-        padding = torch.empty(size=(max_size - local_size,), dtype=torch.uint8, device=device)
+        padding = torch.empty(size=(max_size - local_size,), dtype=torch.uint8, device="cuda")
         tensor = torch.cat((tensor, padding), dim=0)
-    if cpu_group is None:
-        dist.all_gather(tensor_list, tensor)
-    else:
-        dist.all_gather(tensor_list, tensor, group=cpu_group)
+    dist.all_gather(tensor_list, tensor)
 
     data_list = []
     for size, tensor in zip(size_list, tensor_list):
-        tensor = torch.split(tensor, [size, max_size - size], dim=0)[0]
-        buffer = io.BytesIO(tensor.cpu().numpy())
-        obj = torch.load(buffer)
-        data_list.append(obj)
+        buffer = tensor.cpu().numpy().tobytes()[:size]
+        data_list.append(pickle.loads(buffer))
 
     return data_list
 
