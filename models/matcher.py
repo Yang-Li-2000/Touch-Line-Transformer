@@ -34,7 +34,7 @@ class HungarianMatcher(nn.Module):
         assert cost_class != 0 or cost_bbox != 0 or cost_giou != 0, "all costs cant be 0"
 
     @torch.no_grad()
-    def forward(self, outputs, targets, positive_map):
+    def forward(self, outputs, targets, positive_map, aux=False):
         """Performs the matching
 
         Params:
@@ -68,6 +68,11 @@ class HungarianMatcher(nn.Module):
         # Compute the soft-cross entropy between the predicted token alignment and the GT one for each box
         cost_class = -(out_prob.unsqueeze(1) * positive_map.unsqueeze(0)).sum(-1)
 
+        '''
+        predicted boxes are in normalized cx, cy, w, h
+        target boxes are in ???
+        '''
+
         # Compute the L1 cost between boxes
         cost_bbox = torch.cdist(out_bbox, tgt_bbox, p=1)
         #assert cost_class.shape == cost_bbox.shape
@@ -75,11 +80,19 @@ class HungarianMatcher(nn.Module):
         # Compute the giou cost betwen boxes
         cost_giou = -generalized_box_iou(box_cxcywh_to_xyxy(out_bbox), box_cxcywh_to_xyxy(tgt_bbox))
         # Final cost matrix
+        # TODO:
+        #  1. predicted box center passes the extended line of eye-to-fingertip or not.
+        #  2. the size of the box is less important.
+        #  3. the class of the object is critical for distinguish between
+        #  multiple objects on the extended line of eye-to-fingertip.
         C = self.cost_bbox * cost_bbox  + self.cost_giou * cost_giou + self.cost_class * cost_class
         C = C.view(bs, num_queries, -1).cpu()
 
         sizes = [len(v["boxes"]) for v in targets]
         indices = [linear_sum_assignment(c[i]) for i, c in enumerate(C.split(sizes, -1))]
+
+        # if not aux:
+        #     breakpoint()
         return [(torch.as_tensor(i, dtype=torch.int64), torch.as_tensor(j, dtype=torch.int64)) for i, j in indices]
 
 

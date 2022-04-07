@@ -19,6 +19,9 @@ import os.path as osp
 import scipy.io as sio
 import torch.utils.data as data
 from collections import OrderedDict
+
+import util.dist
+
 sys.path.append('.')
 import operator
 import argparse
@@ -99,6 +102,7 @@ class ReferDataset(data.Dataset):
         if self.dataset == 'yourefit':
             self.dataset_root = osp.join(self.data_root, 'yourefit')
             self.im_dir = osp.join(self.dataset_root, 'images')
+            self.inpaint_dir = osp.join(self.dataset_root, INPAINT_DIR)
             self.arm_dir = osp.join(self.dataset_root, 'arms.json')
             with open(self.arm_dir,"r") as f:
                 self.arm_data = json.load(f)
@@ -187,8 +191,20 @@ class ReferDataset(data.Dataset):
         token_pos = match_pos(phrase,target_word)
         token_pos = [token_pos]
         bbox = np.array(bbox, dtype=int) #x1y1x2y2
-        img_path = osp.join(self.im_dir, img_name+'.jpg')
-        img = Image.open(img_path).convert('RGB')
+        if not REPLACE_IMAGES_WITH_INPAINT:
+            img_path = osp.join(self.im_dir, img_name + '.jpg')
+            img = Image.open(img_path).convert('RGB')
+        else:
+            try:
+                img_path = osp.join(self.inpaint_dir, img_name + '.jpg')
+                img = Image.open(img_path).convert('RGB')
+            except:
+                if util.dist.get_rank() == 0:
+                    print()
+                    print('Missing inpaint for ' + img_name + ', using original image instead')
+                    print()
+                img_path = osp.join(self.im_dir, img_name + '.jpg')
+                img = Image.open(img_path).convert('RGB')
         # replace bbox with MDETR predictions
         if USE_MDETR_PREDICTIONS_AS_GROUNDTRUTHS and self.split == 'train':
             width = img.width

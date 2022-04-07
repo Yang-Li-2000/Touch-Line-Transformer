@@ -846,8 +846,12 @@ class SetCriterion(nn.Module):
              targets: list of dicts, such that len(targets) == batch_size.
                       The expected keys in each dict depends on the losses applied, see each loss' doc
         """
+
+        # TODO: bug. Remove arm aux outputs
         outputs_without_aux = {k: v for k, v in outputs.items() if k != "aux_outputs"}
 
+        if 'pred_arm' not in outputs_without_aux.keys():
+            raise RuntimeError('missing predicted arm from outputs')
         # Retrieve the matching between the outputs of the last layer and the targets
         indices = self.matcher(outputs_without_aux, targets, positive_map)
 
@@ -874,7 +878,7 @@ class SetCriterion(nn.Module):
         # In case of auxiliary losses, we repeat this process with the output of each intermediate layer.
         if "aux_outputs" in outputs:
             for i, aux_outputs in enumerate(outputs["aux_outputs"]):
-                indices = self.matcher(aux_outputs, targets, positive_map)
+                indices = self.matcher(aux_outputs, targets, positive_map, aux=True)
                 for loss in self.losses:
                     if loss == "masks":
                         # Intermediate masks losses are too costly to compute, we ignore them.

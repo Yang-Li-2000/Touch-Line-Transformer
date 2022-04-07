@@ -115,6 +115,11 @@ def train_one_epoch(
             # in the function below.
             outputs = model(samples, captions, encode_and_save=False, memory_cache=memory_cache,arm_query=target_arm, encodings_of_tokenized=memory_cache['tokenized']._encodings)
 
+            # Add pred_arm into outputs
+            if pose_out is not None:
+                outputs.update({'pred_arm':pred_arm}) #last layer
+                outputs.update(pose_out)
+
             # Save predictions to lists and write them into a file
             if SAVE_MDETR_PREDICTIONS:
                 for j in range(len(targets)):

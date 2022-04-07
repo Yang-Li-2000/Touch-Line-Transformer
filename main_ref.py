@@ -315,8 +315,14 @@ def main(args):
     print()
     print('USE_MDETR_PREDICTIONS_AS_GROUNDTRUTHS:', USE_MDETR_PREDICTIONS_AS_GROUNDTRUTHS)
     print('REPLACE_ARM_WITH_EYE_TO_FINGERTIP:    ', REPLACE_ARM_WITH_EYE_TO_FINGERTIP)
+    print('ARM_LOSS_COEF:                        ', ARM_LOSS_COEF)
+    print('ARM_SCORE_LOSS_COEF:                  ', ARM_SCORE_LOSS_COEF)
+    print('DEACTIVATE_EXTRA_TRANSFORMS:          ', DEACTIVATE_EXTRA_TRANSFORMS)
+    print('eos_coef:                             ', args.eos_coef)
+    print('REPLACE_IMAGES_WITH_INPAINT:          ', REPLACE_IMAGES_WITH_INPAINT)
+    print('INPAINT_DIR:                          ', INPAINT_DIR)
     print()
-    print()
+
 
     # Initialize tensorboard
     tensorboard_log_dir = 'runs'
@@ -389,7 +395,7 @@ def main(args):
     if not args.eval:
         # Deactivate transformations such as random flip and random crop when
         # saving the predictions of mdetr for distillation
-        if SAVE_MDETR_PREDICTIONS:
+        if SAVE_MDETR_PREDICTIONS or DEACTIVATE_EXTRA_TRANSFORMS:
             input_transform = make_coco_transforms('val', False)
         else:
             input_transform = make_coco_transforms('train', False)
@@ -604,6 +610,9 @@ def main(args):
             # Find out lr
             lr = train_stats['lr']
             writer.add_scalar('Misc_train/lr', lr, epoch_number)
+            writer.add_scalar('Misc_train/ARM_LOSS_COEF', ARM_LOSS_COEF, epoch_number)
+            writer.add_scalar('Misc_train/ARM_SCORE_LOSS_COEF', ARM_SCORE_LOSS_COEF, epoch_number)
+            writer.add_scalar('Misc_train/eos_coef', args.eos_coef, epoch_number)
 
             # Find out losses
             total_loss = train_stats['loss']

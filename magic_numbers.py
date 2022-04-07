@@ -8,3 +8,11 @@ EYE_TO_FINGERTIP_ANNOTATION_VALID_PATH = 'yourefit/eye_to_fingertip/eye_to_finge
 
 ARM_LOSS_COEF = 3
 ARM_SCORE_LOSS_COEF = 1.5
+
+DEACTIVATE_EXTRA_TRANSFORMS = False
+
+REPLACE_IMAGES_WITH_INPAINT = False
+# Inpaint dir, relative to data_root
+#inpaint_dir = 'inpaint'
+#INPAINT_DIR = 'inpaint_Place'
+INPAINT_DIR = 'inpaint_Place_using_expanded_masks'
