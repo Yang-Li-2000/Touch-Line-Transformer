@@ -563,15 +563,15 @@ def main(args):
             unscaled_arm_score_loss = test_stats['yourefit_arm_score_loss_' + str(pose_decoder_last_layer_index) + '_unscaled']
 
             # Write losses to tensorboard
-            writer.add_scalar('Loss/valid_total', total_loss, epoch_number)
-
-            writer.add_scalar('Loss_valid_unscaled/ce', unscaled_ce_loss, epoch_number)
-            writer.add_scalar('Loss_valid_unscaled/giou', unscaled_giou_loss, epoch_number)
-            writer.add_scalar('Loss_valid_unscaled/box', unscaled_box_loss, epoch_number)
-            writer.add_scalar('Loss_valid_unscaled/contrastive_align', unscaled_contrastive_align_loss, epoch_number)
-
-            writer.add_scalar('Loss_valid_unscaled/arm', unscaled_arm_loss, epoch_number)
-            writer.add_scalar('Loss_valid_unscaled/arm_score', unscaled_arm_score_loss, epoch_number)
+            # writer.add_scalar('Loss/valid_total', total_loss, epoch_number)
+            #
+            # writer.add_scalar('Loss_valid_unscaled/ce', unscaled_ce_loss, epoch_number)
+            # writer.add_scalar('Loss_valid_unscaled/giou', unscaled_giou_loss, epoch_number)
+            # writer.add_scalar('Loss_valid_unscaled/box', unscaled_box_loss, epoch_number)
+            # writer.add_scalar('Loss_valid_unscaled/contrastive_align', unscaled_contrastive_align_loss, epoch_number)
+            #
+            # writer.add_scalar('Loss_valid_unscaled/arm', unscaled_arm_loss, epoch_number)
+            # writer.add_scalar('Loss_valid_unscaled/arm_score', unscaled_arm_score_loss, epoch_number)
 
 
         log_stats = {

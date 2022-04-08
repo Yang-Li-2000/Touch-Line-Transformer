@@ -365,6 +365,7 @@ def evaluate(
                 else:
                     evaluator.update(res)
 
+
     # gather the stats from all processes
     metric_logger.synchronize_between_processes()
     print("Averaged stats:", metric_logger)

@@ -16,3 +16,7 @@ REPLACE_IMAGES_WITH_INPAINT = False
 #inpaint_dir = 'inpaint'
 #INPAINT_DIR = 'inpaint_Place'
 INPAINT_DIR = 'inpaint_Place_using_expanded_masks'
+
+SAVE_EVALUATION_PREDICTIONS = False
+prediction_dir = 'predictions'
+prediction_file_name = 'predictions_eye_to_fingertip_47.csv'

@@ -37,6 +37,7 @@ from .yourefit_token import match_pos
 import copy
 from util.box_ops import generalized_box_iou
 from magic_numbers import *
+import pandas as pd
 
 cv2.setNumThreads(0)
 
@@ -442,11 +443,25 @@ class YouRefItEvaluator(object):
             dataset2count = {"yourefit": 0.0}
 
             arm_token_pair = {}
+
+            image_name_list = []
+            box_xmin_list = []
+            box_ymin_list = []
+            box_xmax_list = []
+            box_ymax_list = []
+            arm_xmin_list = []
+            arm_ymin_list = []
+            arm_xmax_list = []
+            arm_ymax_list = []
+            box_score_list = []
+            giou_list = []
+
             
             for image_id in self.predictions.keys():
                 #print('Evaluating{0}...'.format(image_id))
                 
-                gt_bbox,img_name,img = self.refexp_gt.pull_item_box(image_id,self.draw)
+                gt_bbox,img_name,img = self.refexp_gt.pull_item_box(image_id,self.draw) # img.shape: (H, W, 3)
+                H, W, _ = img.shape
 
                 prediction = self.predictions[image_id]
                 assert prediction is not None
@@ -467,30 +482,75 @@ class YouRefItEvaluator(object):
                     )
                     sorted_arm_scores, sorted_arms = zip(*sorted_scores_arms)
                     sorted_arms = torch.cat([torch.as_tensor(x).view(1, 4) for x in sorted_arms])
-                    #if self.draw:
-                        #if giou[0]<0.5:
-                            #draw_box(img,sorted_boxes[0],'good_pred/'+img_name+'.jpg',sorted_arms[0])#,gt_bbox,sorted_boxes[1])
-                            #draw_box(img,sorted_boxes[1],'check_pred/'+img_name+'_1.jpg')
-                            #draw_box(img,sorted_boxes[0],'gt_vis/'+img_name+'.jpg',sorted_arms[0],gt_bbox) #,sorted_boxes[1])
-                            #draw_box(img,gt_bbox,'gt_vis/'+img_name+'.jpg',sorted_arms[0])
-                # aligned_score = aligned_scores(sorted_arms[0],sorted_boxes[:,:10])
 
-                # print(aligned_score[0])
-                # aligned_idx = 0
-                # for i in range(5):
-                #     if aligned_score[i]>0.9:
-                #         aligned_idx = i
-                #         break
-                # if aligned_score[0]>0.9:
-                #     aligned_idx = 0    
-                # else:
-                #     aligned_idx = aligned_score.argmax()
+                    if SAVE_EVALUATION_PREDICTIONS:
+                        normalized_sorted_arms_xyxy = sorted_arms / torch.tensor([W, H, W, H], device=sorted_arms.device)
+                        normalized_sorted_boxes_xyxy = sorted_boxes / torch.tensor([W, H, W, H], device=sorted_boxes.device)
+                        top_arm = normalized_sorted_arms_xyxy[0]
+                        for i in range(len(normalized_sorted_boxes_xyxy)):
+                            # Find out one prediction for current image
+                            current_image_name = img_name
+                            current_box = normalized_sorted_boxes_xyxy[i]
+                            current_arm = top_arm
+                            current_box_score = sorted_scores[i]
+                            current_giou = giou[i]
+                            box_xmin, box_ymin, box_xmax, box_ymax = current_box
+                            arm_xmin, arm_ymin, arm_xmax, arm_ymax = current_arm
+
+                            # Append one prediction to lists
+                            image_name_list.append(current_image_name)
+
+                            box_xmin_list.append(box_xmin.item())
+                            box_ymin_list.append(box_ymin.item())
+                            box_xmax_list.append(box_xmax.item())
+                            box_ymax_list.append(box_ymax.item())
+
+                            arm_xmin_list.append(arm_xmin.item())
+                            arm_ymin_list.append(arm_ymin.item())
+                            arm_xmax_list.append(arm_xmax.item())
+                            arm_ymax_list.append(arm_ymax.item())
+
+                            box_score_list.append(current_box_score)
+                            giou_list.append(current_giou.item())
                         
                 for thresh_iou in self.thresh_iou:
                     if max(giou[0]) >= thresh_iou:
                         dataset2score["yourefit"][thresh_iou] += 1.0
                         
                 dataset2count['yourefit'] += 1.0
+
+
+            # Create a dataframe to store all predictions
+            if SAVE_EVALUATION_PREDICTIONS:
+                df = pd.DataFrame({'image_name': image_name_list,
+                                   'box_xmin': box_xmin_list,
+                                   'box_ymin': box_ymin_list,
+                                   'box_xmax': box_xmax_list,
+                                   'box_ymax': box_ymax_list,
+                                   'arm_xmin': arm_xmin_list,
+                                   'arm_ymin': arm_ymin_list,
+                                   'arm_xmax': arm_xmax_list,
+                                   'arm_ymax': arm_ymax_list,
+                                   'box_score': box_score_list,
+                                   'giou': giou_list})
+                df = df.astype({'image_name': 'str',
+                                'box_xmin': 'float',
+                                'box_ymin': 'float',
+                                'box_xmax': 'float',
+                                'box_ymax': 'float',
+                                'arm_xmin': 'float',
+                                'arm_ymin': 'float',
+                                'arm_xmax': 'float',
+                                'arm_ymax': 'float',
+                                'box_score': 'float',
+                                'giou': 'float'})
+
+                # Save df to disk
+                if not os.path.exists(prediction_dir):
+                    os.mkdir(prediction_dir)
+                df.to_csv(prediction_dir + '/' + prediction_file_name, index=False)
+
+
 
             for key, value in dataset2score.items():
                 for thresh_iou in self.thresh_iou:
