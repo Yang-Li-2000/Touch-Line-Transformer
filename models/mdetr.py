@@ -737,86 +737,55 @@ class SetCriterion(nn.Module):
         assert loss in loss_map, f"do you really want to compute {loss} loss?"
         return loss_map[loss](outputs, targets, positive_map, indices, num_boxes, **kwargs)
 
-    def arm_box_aligned_loss_old(self,outputs,targets,indices):
+    def arm_box_aligned_loss(self, outputs, targets, indices):
         assert "pred_boxes" in outputs
         idx = self._get_src_permutation_idx(indices)
         src_boxes = outputs["pred_boxes"][idx]
         target_boxes = torch.cat([t["boxes"][i] for t, (_, i) in zip(targets, indices)], dim=0)
-        #src_arm =  
+
         bs = len(targets)
-                
-        null_list = [i for i in range(bs) if targets[i]['arm'].shape[0]==0]
-        for i in null_list:
-            targets[i]['arm'] = torch.tensor([[.0,.0,1.0,.0]]).cuda() 
 
-        pred_arm = outputs['pred_arm']
-        target_arm = torch.cat([t["arm"][i] for t, (_, i) in zip(targets, indices)], dim=0) 
-        
-        A,B,C = ArmEquation(target_arm)
-        #A,B,C = ArmEquation(pred_arm)
-        
-        base = (A*A + B*B).sqrt()
-        
-        X,Y = box_cxcywh_to_vertices(src_boxes) 
-        #X,Y = box_cxcywh_to_vertices(target_boxes) 
-        
-        A = A.unsqueeze(1).repeat(1,4)
-        B = B.unsqueeze(1).repeat(1,4)
-        C = C.unsqueeze(1).repeat(1,4)
-        
-        offset = A*X+B*Y+C         
-        offset_sign = (offset> 0).sum(dim=1)
-        
-
-        arm_box_aligned_loss = 0.0 
-        for i in range(len(offset_sign)):
-            if i in null_list:
-                continue
-            if offset_sign[i] == 0 or offset_sign[i] == 4: #same sign
-                offset_loss = abs(offset[i]).min() / base[i]
-                if math.isfinite(offset_loss):
-                    arm_box_aligned_loss = arm_box_aligned_loss + offset_loss
-        
-        return torch.tensor(arm_box_aligned_loss).cuda()
-
-
-    def arm_box_aligned_loss(self,outputs,targets,indices):
-        assert "pred_boxes" in outputs
-        idx = self._get_src_permutation_idx(indices)
-        src_boxes = outputs["pred_boxes"][idx]
-        target_boxes = torch.cat([t["boxes"][i] for t, (_, i) in zip(targets, indices)], dim=0)
-        #src_arm =  
-        bs = len(targets)
-                
-        null_list = [i for i in range(bs) if targets[i]['arm'].shape[0]==0]
-
-        default_arm = torch.tensor([[.0,.0,1000.,1000.]]).cuda() 
-        for i in null_list:
-            targets[i]['arm'] = default_arm
+        null_list = [i for i in range(bs) if targets[i]['arm'].shape[0] == 0]
 
         pred_arm = outputs['pred_arm'][idx[0]]
-        target_arm = torch.cat([t["arm"][i] for t, (_, i) in zip(targets, indices)], dim=0) 
+        target_arm = torch.cat([t["arm"][i] for t, (_, i) in zip(targets, indices)], dim=0)
 
-        null_list = [i for i in range(target_arm.shape[0]) if target_arm[i][3]>10]
+        # Handle missing target arms
+        for i in null_list:
+            targets[i]['arm'] = torch.tensor([-1, -1, -1, -1], device=pred_arm.device)
+            pred_arm = torch.vstack([pred_arm[0:i], torch.tensor([-1, -1, -1, -1], device=pred_arm.device), pred_arm[i:]])
+            target_arm = torch.vstack([target_arm[0:i], torch.tensor([-1, -1, -1, -1], device=pred_arm.device), target_arm[i:]])
+            src_boxes = torch.vstack([src_boxes[0:i], torch.tensor([-1, -1, -1, -1], device=pred_arm.device), src_boxes[i:]])
+            target_boxes = torch.vstack([target_boxes[0:i], torch.tensor([-1, -1, -1, -1], device=pred_arm.device), target_boxes[i:]])
 
-        arm_tensor = target_arm[:,2:4]-target_arm[:,0:2]
-        box_tensor = src_boxes[:,:2] - target_arm[:,0:2]
+        assert pred_arm.shape[0] == len(targets)
+        assert target_arm.shape[0] == pred_arm.shape[0]
 
-        # arm_tensor = pred_arm[:,2:4]-pred_arm[:,0:2]
-        # box_tensor = src_boxes[:,:2] - pred_arm[:,0:2]
+        if USE_GT__ARM_FOR_ARM_BOX_ALIGN_LOSS:
+            arm_tensor = target_arm[:, 2:4] - target_arm[:, 0:2]    # eye to fingertip
+            box_tensor = src_boxes[:, :2] - target_arm[:, 0:2]      # eye to box center
+        else:
+            arm_tensor = pred_arm[:, 2:4] - pred_arm[:, 0:2]        # eye to fingertip
+            box_tensor = src_boxes[:, :2] - pred_arm[:, 0:2]        # eye to box center
 
-        assert(arm_tensor.shape[0] == box_tensor.shape[0])
+        # Cosine similarity between predicted eye-to-fingertip and eye-to-box
+        assert (arm_tensor.shape[0] == box_tensor.shape[0])
+        cos_sim = F.cosine_similarity(arm_tensor, box_tensor, dim=1)
 
-        cos_sim = F.cosine_similarity(arm_tensor,box_tensor,dim=1)
+        # Cosine similarities between ground truth eye-to-fingertip and eye-to-box
+        gt_arm_tensor = target_arm[:, 2:4] - target_arm[:, 0:2]
+        gt_box_tensor = target_boxes[:, :2] - target_arm[:, 0:2]
+        gt_cos_sim = F.cosine_similarity(gt_arm_tensor, gt_box_tensor, dim=1)
 
-        arm_box_aligned_loss = torch.tensor(0.0).cuda() 
+        if ARM_BOX_ALIGN_OFFSET_BY_GT:
+            offset = gt_cos_sim
+        else:
+            offset = ARM_BOX_ALIGH_FIXED_OFFSET
+
         relu = nn.ReLU()
-        for i in range(len(cos_sim)):
-            if i in null_list:
-                continue
-            arm_box_aligned_loss = arm_box_aligned_loss + relu(0.95 - cos_sim[i]) #0.95-
-        
-        return torch.tensor(arm_box_aligned_loss).cuda()
+        arm_box_aligned_loss = relu(offset - cos_sim).sum()
+
+        return arm_box_aligned_loss
 
 
     def contrastive_obj_loss(self, outputs, targets, matched_idx):
@@ -868,9 +837,9 @@ class SetCriterion(nn.Module):
         # contrastive_obj_loss = self.contrastive_obj_loss(outputs_without_aux,targets,indices)
         # losses.update({'contrastive_obj_loss':contrastive_obj_loss})
 
-        # if 'pred_arm' in outputs:
-        #     arm_box_aligned_loss = self.arm_box_aligned_loss(outputs,targets,indices)
-        #     losses.update({'arm_box_aligned_loss':arm_box_aligned_loss})
+        if 'pred_arm' in outputs:
+            arm_box_aligned_loss = self.arm_box_aligned_loss(outputs, targets, indices)
+            losses.update({'arm_box_aligned_loss': arm_box_aligned_loss})
         
         for loss in self.losses:
             losses.update(self.get_loss(loss, outputs, targets, positive_map, indices, num_boxes, args=args))
@@ -916,7 +885,7 @@ def get_pose_loss(arm, arm_class, target_arm, idx=0):
         target_arm[i] = torch.tensor([[0.0, 0.0, 1.0, 1.0]]).to(arm.device)
 
     target_arm = torch.cat(target_arm, 0)
-    l1_dist = F.l1_loss(arm,target_arm.unsqueeze(1).repeat(1, 10, 1), reduction='none').sum(dim=2)
+    l1_dist = F.l1_loss(arm, target_arm.unsqueeze(1).repeat(1, 10, 1), reduction='none').sum(dim=2)
     min_dist, min_idx = torch.min(l1_dist, dim=1)
 
     cls_weights = [0.2, 0.8]
@@ -931,6 +900,7 @@ def get_pose_loss(arm, arm_class, target_arm, idx=0):
         arm_loss = arm_loss + min_dist[i]
     
     score_loss = class_criterion(arm_class.softmax(dim=2).transpose(2, 1), arm_cls_label).sum() / (num * loss_scaling_factor_for_missing_annotations)
+
     pose_loss = ARM_LOSS_COEF * arm_loss + ARM_SCORE_LOSS_COEF * score_loss
     arm = arm.unsqueeze(2)
     matched_arm = torch.cat([i[j] for i,j in zip(arm,min_idx)], dim=0)
@@ -992,7 +962,7 @@ def build(args):
     weight_dict = {"loss_ce": args.ce_loss_coef, "loss_bbox": args.bbox_loss_coef}
     for i in range(3):
         weight_dict['pose_loss_{0}'.format(i)] = 1
-    weight_dict['arm_box_aligned_loss']=5
+    weight_dict['arm_box_aligned_loss'] = ARM_BOX_ALIGN_LOSS_COEF
     weight_dict['contrastive_obj_loss']=1
     if args.contrastive_loss:
         weight_dict["contrastive_loss"] = args.contrastive_loss_coef

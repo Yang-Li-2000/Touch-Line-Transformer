@@ -313,14 +313,23 @@ def main(args):
 
     print()
     print()
-    print('USE_MDETR_PREDICTIONS_AS_GROUNDTRUTHS:', USE_MDETR_PREDICTIONS_AS_GROUNDTRUTHS)
+    if USE_MDETR_PREDICTIONS_AS_GROUNDTRUTHS:
+        print('USE_MDETR_PREDICTIONS_AS_GROUNDTRUTHS:', USE_MDETR_PREDICTIONS_AS_GROUNDTRUTHS)
     print('REPLACE_ARM_WITH_EYE_TO_FINGERTIP:    ', REPLACE_ARM_WITH_EYE_TO_FINGERTIP)
     print('ARM_LOSS_COEF:                        ', ARM_LOSS_COEF)
     print('ARM_SCORE_LOSS_COEF:                  ', ARM_SCORE_LOSS_COEF)
-    print('DEACTIVATE_EXTRA_TRANSFORMS:          ', DEACTIVATE_EXTRA_TRANSFORMS)
+    print('ARM_BOX_ALIGN_LOSS_COEF:              ', ARM_BOX_ALIGN_LOSS_COEF)
+    print('USE_GT__ARM_FOR_ARM_BOX_ALIGN_LOSS:   ', USE_GT__ARM_FOR_ARM_BOX_ALIGN_LOSS)
+    if ARM_BOX_ALIGN_OFFSET_BY_GT:
+        print('ARM_BOX_ALIGN_OFFSET_BY_GT:           ', ARM_BOX_ALIGN_OFFSET_BY_GT)
+    else:
+        print('ARM_BOX_ALIGH_FIXED_OFFSET:           ', ARM_BOX_ALIGH_FIXED_OFFSET)
+    if DEACTIVATE_EXTRA_TRANSFORMS:
+        print('DEACTIVATE_EXTRA_TRANSFORMS:          ', DEACTIVATE_EXTRA_TRANSFORMS)
     print('eos_coef:                             ', args.eos_coef)
-    print('REPLACE_IMAGES_WITH_INPAINT:          ', REPLACE_IMAGES_WITH_INPAINT)
-    print('INPAINT_DIR:                          ', INPAINT_DIR)
+    if REPLACE_IMAGES_WITH_INPAINT:
+        print('REPLACE_IMAGES_WITH_INPAINT:          ', REPLACE_IMAGES_WITH_INPAINT)
+        print('INPAINT_DIR:                          ', INPAINT_DIR)
     print()
 
 
@@ -615,6 +624,11 @@ def main(args):
             writer.add_scalar('Misc_train/lr', lr, epoch_number)
             writer.add_scalar('Misc_train/ARM_LOSS_COEF', ARM_LOSS_COEF, epoch_number)
             writer.add_scalar('Misc_train/ARM_SCORE_LOSS_COEF', ARM_SCORE_LOSS_COEF, epoch_number)
+            writer.add_scalar('Misc_train/ARM_BOX_ALIGN_LOSS_COEF', ARM_BOX_ALIGN_LOSS_COEF, epoch_number)
+            if ARM_BOX_ALIGN_OFFSET_BY_GT:
+                writer.add_scalar('Misc_train/ARM_BOX_ALIGH_FIXED_OFFSET', ARM_BOX_ALIGH_FIXED_OFFSET, epoch_number)
+            else:
+                writer.add_scalar('Misc_train/ARM_BOX_ALIGH_FIXED_OFFSET', -1, epoch_number)
             writer.add_scalar('Misc_train/eos_coef', args.eos_coef, epoch_number)
 
             # Find out losses
@@ -632,6 +646,7 @@ def main(args):
             # unscaled_pose_loss = train_stats['pose_loss_' + str(pose_decoder_last_layer_index) + '_unscaled']
             unscaled_arm_loss = train_stats['arm_loss_' + str(pose_decoder_last_layer_index) + '_unscaled']
             unscaled_arm_score_loss = train_stats['arm_score_loss_' + str(pose_decoder_last_layer_index) + '_unscaled']
+            unscaled_arm_box_align_loss = train_stats['arm_box_aligned_loss_unscaled']
 
             # Write losses to tensorboard
             writer.add_scalar('Loss/train_total', total_loss, epoch_number)
@@ -643,6 +658,7 @@ def main(args):
 
             writer.add_scalar('Loss_train_unscaled/arm', unscaled_arm_loss, epoch_number)
             writer.add_scalar('Loss_train_unscaled/arm_score', unscaled_arm_score_loss, epoch_number)
+            writer.add_scalar('Loss_train_unscaled/arm_box_align', unscaled_arm_box_align_loss, epoch_number)
 
 
         if args.output_dir:
@@ -719,6 +735,7 @@ def main(args):
             # unscaled_pose_loss = test_stats['yourefit_pose_loss_' + str(pose_decoder_last_layer_index) + '_unscaled']
             unscaled_arm_loss = test_stats['yourefit_arm_loss_' + str(pose_decoder_last_layer_index) + '_unscaled']
             unscaled_arm_score_loss = test_stats['yourefit_arm_score_loss_' + str(pose_decoder_last_layer_index) + '_unscaled']
+            unscaled_arm_box_align_loss = train_stats['arm_box_aligned_loss_unscaled']
 
             # Write losses to tensorboard
             writer.add_scalar('Loss/valid_total', total_loss, epoch_number)
@@ -730,6 +747,7 @@ def main(args):
 
             writer.add_scalar('Loss_valid_unscaled/arm', unscaled_arm_loss, epoch_number)
             writer.add_scalar('Loss_valid_unscaled/arm_score', unscaled_arm_score_loss, epoch_number)
+            writer.add_scalar('Loss_valid_unscaled/arm_box_align', unscaled_arm_box_align_loss, epoch_number)
 
         log_stats = {
             **{f"train_{k}": v for k, v in train_stats.items()},
