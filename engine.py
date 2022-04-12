@@ -264,6 +264,8 @@ def evaluate(
 
     metric_logger = MetricLogger(delimiter="  ")
     header = "Test:"
+
+    eval_count = 0
     
     for batch_dict in metric_logger.log_every(data_loader, 10, header, args.output_dir):
         samples = batch_dict["samples"].to(device)
@@ -364,6 +366,10 @@ def evaluate(
                     evaluator.update(flickr_res)
                 else:
                     evaluator.update(res)
+
+        eval_count += 1
+        if EVAL_EARLY_STOP and eval_count >= EVAL_EARLY_STOP_COUNT:
+            break
 
 
     # gather the stats from all processes

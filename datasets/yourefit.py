@@ -483,6 +483,19 @@ class YouRefItEvaluator(object):
                     sorted_arm_scores, sorted_arms = zip(*sorted_scores_arms)
                     sorted_arms = torch.cat([torch.as_tensor(x).view(1, 4) for x in sorted_arms])
 
+                    if EVAL_EARLY_STOP:
+                        fingertip_xyxy = sorted_arms[0, 2:4]
+                        eye_xyxy = sorted_arms[0, 0:2]
+                        box_centers_xyxy = sorted_boxes[:, :2]
+                        arm_tensor = fingertip_xyxy - eye_xyxy
+                        box_tensor = box_centers_xyxy - eye_xyxy
+                        cos_sim = F.cosine_similarity(arm_tensor, box_tensor, dim=1)
+
+                        normalized_sorted_arms_xyxy = sorted_arms / torch.tensor([W, H, W, H], device=sorted_arms.device)
+                        normalized_sorted_boxes_xyxy = sorted_boxes / torch.tensor([W, H, W, H], device=sorted_boxes.device)
+                        print("'" + img_name + "'", ',', normalized_sorted_boxes_xyxy, ',', normalized_sorted_arms_xyxy[0], ',', giou)
+                        breakpoint()
+
                     if SAVE_EVALUATION_PREDICTIONS:
                         normalized_sorted_arms_xyxy = sorted_arms / torch.tensor([W, H, W, H], device=sorted_arms.device)
                         normalized_sorted_boxes_xyxy = sorted_boxes / torch.tensor([W, H, W, H], device=sorted_boxes.device)

@@ -551,17 +551,17 @@ def main(args):
             precisions = test_stats['yourefit_yourefit']
             p25, p50, p75 = precisions
             # Write precisions to tensorboard
-            writer.add_scalar('Precision/precision_at_0.25', p25, epoch_number)
-            writer.add_scalar('Precision/precision_at_0.50', p50, epoch_number)
-            writer.add_scalar('Precision/precision_at_0.75', p75, epoch_number)
+            # writer.add_scalar('Precision/precision_at_0.25', p25, epoch_number)
+            # writer.add_scalar('Precision/precision_at_0.50', p50, epoch_number)
+            # writer.add_scalar('Precision/precision_at_0.75', p75, epoch_number)
 
             # Find out  losses
-            total_loss = test_stats['yourefit_loss']
-
-            unscaled_ce_loss = test_stats['yourefit_loss_ce_unscaled']
-            unscaled_giou_loss = test_stats['yourefit_loss_giou_unscaled']
-            unscaled_box_loss = test_stats['yourefit_loss_bbox_unscaled']
-            unscaled_contrastive_align_loss =  test_stats['yourefit_loss_contrastive_align_unscaled']
+            # total_loss = test_stats['yourefit_loss']
+            #
+            # unscaled_ce_loss = test_stats['yourefit_loss_ce_unscaled']
+            # unscaled_giou_loss = test_stats['yourefit_loss_giou_unscaled']
+            # unscaled_box_loss = test_stats['yourefit_loss_bbox_unscaled']
+            # unscaled_contrastive_align_loss =  test_stats['yourefit_loss_contrastive_align_unscaled']
 
             if dist.get_world_size() > 1:
                 pose_decoder_last_layer_index = len(model.module.pose_decoder) - 1
@@ -664,7 +664,7 @@ def main(args):
         if args.output_dir:
             checkpoint_paths = [output_dir / "checkpoint.pth"]
             # extra checkpoint before LR drop and every 2 epochs
-            if (epoch + 1) % args.lr_drop == 0 or (epoch + 1) % 3 == 0:
+            if (epoch + 1) % args.lr_drop == 0 or (epoch + 1) % CHECKPOINT_FREQUENCY == 0:
                 checkpoint_paths.append(output_dir / f"checkpoint{epoch:04}.pth")
             for checkpoint_path in checkpoint_paths:
                 dist.save_on_master(
