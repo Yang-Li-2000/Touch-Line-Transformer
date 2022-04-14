@@ -22,45 +22,47 @@ from .backbone import build_backbone
 from .matcher import build_matcher
 from .postprocessors import build_postprocessors
 from .segmentation import DETRsegm, dice_loss, sigmoid_focal_loss
-from .transformer import build_transformer, TransformerEncoder, TransformerEncoderLayer, TransformerDecoderLayer
-#from .transformer_ori import TransformerDecoderLayer
+from .transformer import build_transformer, TransformerEncoder, \
+    TransformerEncoderLayer, TransformerDecoderLayer
+# from .transformer_ori import TransformerDecoderLayer
 from util.box_ops import box_cxcywh_to_xyxy, generalized_box_iou
 from magic_numbers import *
-
 
 global img_size_pairs
 img_size_pairs = {}
 
+
 class ConstrainedLearnablePE(nn.Module):
-    def __init__(self,hidden_dim,num_queries,temperature=20):
+    def __init__(self, hidden_dim, num_queries, temperature=20):
         super().__init__()
         self.D = hidden_dim
         self.T = temperature
         self.num_queries = num_queries
-        self.mlp = MLP(2 * hidden_dim, 2 * hidden_dim, hidden_dim,3)
+        self.mlp = MLP(2 * hidden_dim, 2 * hidden_dim, hidden_dim, 3)
         self.x_embed = nn.Embedding(num_queries, 1)
-    def sin_or_cos(self,x,i):
-        T = self.T ** (2*i/self.D)
-        if i%2==0:
-            return torch.sin(x/T)
-        else:
-            return torch.cos(x/T)
 
-    def forward(self,x1,y1,x2,y2):
-        #embed()
+    def sin_or_cos(self, x, i):
+        T = self.T ** (2 * i / self.D)
+        if i % 2 == 0:
+            return torch.sin(x / T)
+        else:
+            return torch.cos(x / T)
+
+    def forward(self, x1, y1, x2, y2):
+        # embed()
         bs = x1.shape[0]
-        x_embed =  self.x_embed.weight.sigmoid().squeeze(1)
-        x = [self.sin_or_cos(x_embed,i) for i in range(self.D)]
-        x = torch.stack(x).transpose(0,1)
-        k = (y2-y1)/((x2-x1)+1e-6)
+        x_embed = self.x_embed.weight.sigmoid().squeeze(1)
+        x = [self.sin_or_cos(x_embed, i) for i in range(self.D)]
+        x = torch.stack(x).transpose(0, 1)
+        k = (y2 - y1) / ((x2 - x1) + 1e-6)
         b = y1 - k * x1
-        k = k.unsqueeze(1).repeat(1,self.num_queries)
-        b = b.unsqueeze(1).repeat(1,self.num_queries)
+        k = k.unsqueeze(1).repeat(1, self.num_queries)
+        b = b.unsqueeze(1).repeat(1, self.num_queries)
         y_embed = k * x_embed + b
-        y = [self.sin_or_cos(y_embed,i) for i in range(self.D)]
-        y = torch.stack(y).permute(1,2,0)
-        x = x.unsqueeze(0).repeat(bs,1,1)
-        pos_embed = torch.cat([x,y],dim=2)
+        y = [self.sin_or_cos(y_embed, i) for i in range(self.D)]
+        y = torch.stack(y).permute(1, 2, 0)
+        x = x.unsqueeze(0).repeat(bs, 1, 1)
+        pos_embed = torch.cat([x, y], dim=2)
         pos_embed = self.mlp(pos_embed)
         return pos_embed
 
@@ -69,21 +71,21 @@ class MDETR(nn.Module):
     """ This is the MDETR module that performs modulated object detection """
 
     def __init__(
-        self,
-        backbone,
-        transformer,
-        num_classes,
-        num_queries,
-        aux_loss=False,
-        contrastive_hdim=64,
-        contrastive_loss=False,
-        contrastive_align_loss=False,
-        qa_dataset: Optional[str] = None,
-        split_qa_heads=True,
-        predict_final=False,
-        yourefit = False,
-        pose = True
-        ):
+            self,
+            backbone,
+            transformer,
+            num_classes,
+            num_queries,
+            aux_loss=False,
+            contrastive_hdim=64,
+            contrastive_loss=False,
+            contrastive_align_loss=False,
+            qa_dataset: Optional[str] = None,
+            split_qa_heads=True,
+            predict_final=False,
+            yourefit=False,
+            pose=True
+    ):
         """Initializes the model.
 
         Args:
@@ -115,40 +117,52 @@ class MDETR(nn.Module):
         self.backbone = backbone
         self.input_proj = None
 
-        self.input_proj = nn.Conv2d(backbone.num_channels, hidden_dim, kernel_size=1)
+        self.input_proj = nn.Conv2d(backbone.num_channels, hidden_dim,
+                                    kernel_size=1)
 
-        
         self.pose = pose
         if self.pose:
             self.arm_query_proj = nn.Conv1d(4, 256, kernel_size=1)
-            pose_encoder_layer = TransformerEncoderLayer(hidden_dim, transformer.nhead)
+            pose_encoder_layer = TransformerEncoderLayer(hidden_dim,
+                                                         transformer.nhead)
             self.pose_encoder = TransformerEncoder(pose_encoder_layer, 3)
-            self.arm_head = MLP(hidden_dim, hidden_dim, 4,3) #x,y
-            self.arm_class = nn.Linear(hidden_dim, 2) 
+            self.arm_head = MLP(hidden_dim, hidden_dim, 4, 3)  # x,y
+            self.arm_class = nn.Linear(hidden_dim, 2)
             self.pose_decoder = nn.ModuleList()
             self.pose_query = nn.Embedding(10, hidden_dim)
-            self.pose_input_proj = nn.Conv2d(backbone.num_channels+int(yourefit), hidden_dim, kernel_size=1)
-            for i in range(0,3):
-                self.pose_decoder.append(TransformerDecoderLayer(hidden_dim, transformer.nhead,pose=True))
-            
-            #self.constrained_pe = ConstrainedLearnablePE(hidden_dim,num_queries)
+            self.pose_input_proj = nn.Conv2d(
+                backbone.num_channels + int(yourefit), hidden_dim,
+                kernel_size=1)
+            for i in range(0, 3):
+                self.pose_decoder.append(
+                    TransformerDecoderLayer(hidden_dim, transformer.nhead,
+                                            pose=True))
+
+            # self.constrained_pe = ConstrainedLearnablePE(hidden_dim,num_queries)
 
         self.aux_loss = aux_loss
         self.contrastive_loss = contrastive_loss
         if contrastive_loss:
-            self.contrastive_projection_image = nn.Linear(hidden_dim, contrastive_hdim, bias=False)
+            self.contrastive_projection_image = nn.Linear(hidden_dim,
+                                                          contrastive_hdim,
+                                                          bias=False)
             self.contrastive_projection_text = nn.Linear(
-                self.transformer.text_encoder.config.hidden_size, contrastive_hdim, bias=False
+                self.transformer.text_encoder.config.hidden_size,
+                contrastive_hdim, bias=False
             )
         self.contrastive_align_loss = contrastive_align_loss
         if contrastive_align_loss:
-            self.contrastive_align_projection_image = nn.Linear(hidden_dim, contrastive_hdim)
-            self.contrastive_align_projection_text = nn.Linear(hidden_dim, contrastive_hdim)
+            self.contrastive_align_projection_image = nn.Linear(hidden_dim,
+                                                                contrastive_hdim)
+            self.contrastive_align_projection_text = nn.Linear(hidden_dim,
+                                                               contrastive_hdim)
 
         self.qa_dataset = qa_dataset
-        self.split_qa_heads = split_qa_heads        
+        self.split_qa_heads = split_qa_heads
 
-    def forward(self, samples: NestedTensor, captions, encode_and_save=True, memory_cache=None,paf_samples=None,arm_query=None,img_names=None, encodings_of_tokenized=None):
+    def forward(self, samples: NestedTensor, captions, encode_and_save=True,
+                memory_cache=None, paf_samples=None, arm_query=None,
+                img_names=None, encodings_of_tokenized=None):
         """The forward expects a NestedTensor, which consists of:
            - samples.tensor: batched images, of shape [batch_size x 3 x H x W]
            - samples.mask: a binary mask of shape [batch_size x H x W], containing 1 on padded pixels
@@ -170,38 +184,40 @@ class MDETR(nn.Module):
             assert memory_cache is None
             features, pos = self.backbone(samples)
             src, mask = features[-1].decompose()
-                
+
             query_embed = self.query_embed.weight
-            
+
             pose_out = None
             if self.pose:
                 pose_out = {}
-                bs= src.shape[0]
-                pose_src =  self.pose_input_proj(src).flatten(2).permute(2, 0, 1)
+                bs = src.shape[0]
+                pose_src = self.pose_input_proj(src).flatten(2).permute(2, 0, 1)
                 src_pos = pos[-1].flatten(2).permute(2, 0, 1)
                 pose_mask = mask.flatten(1)
-                pose_memory = self.pose_encoder(pose_src, src_key_padding_mask=pose_mask, pos=src_pos)
+                pose_memory = self.pose_encoder(pose_src,
+                                                src_key_padding_mask=pose_mask,
+                                                pos=src_pos)
 
-                pose_query = self.pose_query.weight.unsqueeze(1).repeat(1, bs, 1)
+                pose_query = self.pose_query.weight.unsqueeze(1).repeat(1, bs,
+                                                                        1)
                 for i in range(3):
-                    keypoint_query = self.pose_decoder[i](pose_query,pose_memory,memory_key_padding_mask=pose_mask,pos=src_pos,query_pos = None,last_layer=(i==2),img_names = img_names)
-                    arms = self.arm_head(keypoint_query.transpose(0, 1)).sigmoid()
-                    arm_classes = self.arm_class(keypoint_query.transpose(0, 1)) 
+                    keypoint_query = self.pose_decoder[i](pose_query,
+                                                          pose_memory,
+                                                          memory_key_padding_mask=pose_mask,
+                                                          pos=src_pos,
+                                                          query_pos=None,
+                                                          last_layer=(i == 2),
+                                                          img_names=img_names)
+                    arms = self.arm_head(
+                        keypoint_query.transpose(0, 1)).sigmoid()
+                    arm_classes = self.arm_class(keypoint_query.transpose(0, 1))
                     pose_out.update({
                         '{}_arms'.format(i): arms,
                         '{}_arm_score'.format(i): arm_classes,
                     })
-            
-
-            #embed()
-            # global img_size_pairs
-            # for name in img_names:
-            #     #embed()
-            #     img_size_pairs[name] = src.shape[2:]
-            #     torch.save(img_size_pairs,'img_size_pairs.pth')
 
             memory_cache = self.transformer(
-                self.input_proj(src),#+ self.input_proj_paf(paf_features),
+                self.input_proj(src),  # + self.input_proj_paf(paf_features),
                 mask,
                 query_embed,
                 pos[-1],
@@ -210,22 +226,21 @@ class MDETR(nn.Module):
                 text_memory=None,
                 img_memory=None,
                 text_attention_mask=None,
-            ) #image+text fused feature
+            )  # image+text fused feature
 
             if self.contrastive_loss:
-                memory_cache["text_pooled_op"] = self.contrastive_projection_text(memory_cache["text_pooled_op"])
-                memory_cache["img_pooled_op"] = self.contrastive_projection_image(memory_cache["img_pooled_op"])
+                memory_cache[
+                    "text_pooled_op"] = self.contrastive_projection_text(
+                    memory_cache["text_pooled_op"])
+                memory_cache[
+                    "img_pooled_op"] = self.contrastive_projection_image(
+                    memory_cache["img_pooled_op"])
 
             return memory_cache, pose_out
 
         else:
             assert memory_cache is not None
             arm_query_embed = None
-            # if arm_query is not None:
-            #     arm_query_embed = self.constrained_pe(arm_query[:,0],arm_query[:,1],arm_query[:,2],arm_query[:,3])
-            #     arm_query = arm_query.unsqueeze(1).repeat(1, self.num_queries, 1)  
-            #     arm_query_embed = self.arm_query_proj(arm_query.permute(0,2,1).type(torch.cuda.FloatTensor)) 
-            #     arm_query_embed = arm_query_embed.permute(2,0,1)             
 
             hs = self.transformer(
                 mask=memory_cache["mask"],
@@ -235,8 +250,8 @@ class MDETR(nn.Module):
                 text_memory=memory_cache["text_memory_resized"],
                 img_memory=memory_cache["img_memory"],
                 text_attention_mask=memory_cache["text_attention_mask"],
-                arm_query_embed = arm_query_embed,
-                img_name = img_names
+                arm_query_embed=arm_query_embed,
+                img_name=img_names
             )
             out = {}
 
@@ -248,14 +263,11 @@ class MDETR(nn.Module):
 
             outputs_class = self.class_embed(hs)
             outputs_coord = self.bbox_embed(hs).sigmoid()
-            
-            #outputs_score = self.object_score(hs).sigmoid()
-
             out.update(
                 {
                     "pred_logits": outputs_class[-1],
                     "pred_boxes": outputs_coord[-1],
-                    #"pred_scores":outputs_score[-1],
+                    # "pred_scores":outputs_score[-1],
                 }
             )
             outputs_isfinal = None
@@ -264,9 +276,12 @@ class MDETR(nn.Module):
                 out["pred_isfinal"] = outputs_isfinal[-1]
             proj_queries, proj_tokens = None, None
             if self.contrastive_align_loss:
-                proj_queries = F.normalize(self.contrastive_align_projection_image(hs), p=2, dim=-1)
+                proj_queries = F.normalize(
+                    self.contrastive_align_projection_image(hs), p=2, dim=-1)
                 proj_tokens = F.normalize(
-                    self.contrastive_align_projection_text(memory_cache["text_memory"]).transpose(0, 1), p=2, dim=-1
+                    self.contrastive_align_projection_text(
+                        memory_cache["text_memory"]).transpose(0, 1), p=2,
+                    dim=-1
                 )
                 out.update(
                     {
@@ -283,28 +298,31 @@ class MDETR(nn.Module):
                             "pred_logits": a,
                             "pred_boxes": b,
                             "proj_queries": c,
-                            #"pred_scores": d,
+                            # "pred_scores": d,
                             "proj_tokens": proj_tokens,
                             "tokenized": memory_cache["tokenized"],
                         }
-                        #for b, c,d in zip(outputs_coord[:-1], proj_queries[:-1],outputs_score[-1])
-                        for a, b, c in zip(outputs_class[:-1], outputs_coord[:-1], proj_queries[:-1])
+                        # for b, c,d in zip(outputs_coord[:-1], proj_queries[:-1],outputs_score[-1])
+                        for a, b, c in
+                        zip(outputs_class[:-1], outputs_coord[:-1],
+                            proj_queries[:-1])
                     ]
                 else:
                     out["aux_outputs"] = [
                         {
                             "pred_logits": a,
                             "pred_boxes": b,
-                            #"pred_scores": c,
+                            # "pred_scores": c,
                         }
                         for a, b in zip(outputs_class[:-1], outputs_coord[:-1])
-                        #for b,c in zip(outputs_coord[:-1],outputs_score[-1])
+                        # for b,c in zip(outputs_coord[:-1],outputs_score[-1])
 
                     ]
                 if outputs_isfinal is not None:
                     assert len(outputs_isfinal[:-1]) == len(out["aux_outputs"])
                     for i in range(len(outputs_isfinal[:-1])):
-                        out["aux_outputs"][i]["pred_isfinal"] = outputs_isfinal[i]
+                        out["aux_outputs"][i]["pred_isfinal"] = outputs_isfinal[
+                            i]
             return out
 
 
@@ -314,11 +332,11 @@ class ContrastiveCriterion(nn.Module):
         self.temperature = temperature
 
     def forward(self, pooled_text, pooled_image):
-
         normalized_text_emb = F.normalize(pooled_text, p=2, dim=1)
         normalized_img_emb = F.normalize(pooled_image, p=2, dim=1)
 
-        logits = torch.mm(normalized_img_emb, normalized_text_emb.t()) / self.temperature
+        logits = torch.mm(normalized_img_emb,
+                          normalized_text_emb.t()) / self.temperature
         labels = torch.arange(logits.size(0)).to(pooled_image.device)
 
         loss_i = F.cross_entropy(logits, labels)
@@ -335,16 +353,21 @@ class QACriterionGQA(nn.Module):
     def forward(self, output, answers):
         loss = {}
         if not self.split_qa_heads:
-            loss["loss_answer_total"] = F.cross_entropy(output["pred_answer"], answers["answer"], reduction="mean")
+            loss["loss_answer_total"] = F.cross_entropy(output["pred_answer"],
+                                                        answers["answer"],
+                                                        reduction="mean")
             attr_total = (output["pred_answer"].argmax(-1)) == answers["answer"]
             loss["accuracy_answer_total"] = attr_total.float().mean()
             return loss
 
         device = output["pred_answer_type"].device
-        loss["loss_answer_type"] = F.cross_entropy(output["pred_answer_type"], answers["answer_type"])
+        loss["loss_answer_type"] = F.cross_entropy(output["pred_answer_type"],
+                                                   answers["answer_type"])
 
-        type_acc = output["pred_answer_type"].argmax(-1) == answers["answer_type"]
-        loss["accuracy_answer_type"] = type_acc.sum() / answers["answer_type"].numel()
+        type_acc = output["pred_answer_type"].argmax(-1) == answers[
+            "answer_type"]
+        loss["accuracy_answer_type"] = type_acc.sum() / answers[
+            "answer_type"].numel()
 
         is_obj = answers["answer_type"] == 0
         is_attr = answers["answer_type"] == 1
@@ -355,72 +378,93 @@ class QACriterionGQA(nn.Module):
         ## OBJ type
         obj_norm = is_obj.sum() if is_obj.any() else 1.0
         loss["loss_answer_obj"] = (
-            F.cross_entropy(output["pred_answer_obj"], answers["answer_obj"], reduction="none")
-            .masked_fill(~is_obj, 0)
-            .sum()
-            / obj_norm
+                F.cross_entropy(output["pred_answer_obj"],
+                                answers["answer_obj"], reduction="none")
+                .masked_fill(~is_obj, 0)
+                .sum()
+                / obj_norm
         )
-        obj_acc = (output["pred_answer_obj"].argmax(-1)) == answers["answer_obj"]
+        obj_acc = (output["pred_answer_obj"].argmax(-1)) == answers[
+            "answer_obj"]
         loss["accuracy_answer_obj"] = (
-            obj_acc[is_obj].sum() / is_obj.sum() if is_obj.any() else torch.as_tensor(1.0, device=device)
+            obj_acc[
+                is_obj].sum() / is_obj.sum() if is_obj.any() else torch.as_tensor(
+                1.0, device=device)
         )
 
         ## ATTR type
         attr_norm = is_attr.sum() if is_attr.any() else 1.0
         loss["loss_answer_attr"] = (
-            F.cross_entropy(output["pred_answer_attr"], answers["answer_attr"], reduction="none")
-            .masked_fill(~is_attr, 0)
-            .sum()
-            / attr_norm
+                F.cross_entropy(output["pred_answer_attr"],
+                                answers["answer_attr"], reduction="none")
+                .masked_fill(~is_attr, 0)
+                .sum()
+                / attr_norm
         )
-        attr_acc = (output["pred_answer_attr"].argmax(-1)) == answers["answer_attr"]
+        attr_acc = (output["pred_answer_attr"].argmax(-1)) == answers[
+            "answer_attr"]
         loss["accuracy_answer_attr"] = (
-            attr_acc[is_attr].sum() / is_attr.sum() if is_attr.any() else torch.as_tensor(1.0, device=device)
+            attr_acc[
+                is_attr].sum() / is_attr.sum() if is_attr.any() else torch.as_tensor(
+                1.0, device=device)
         )
 
         ## REL type
         rel_norm = is_rel.sum() if is_rel.any() else 1.0
         loss["loss_answer_rel"] = (
-            F.cross_entropy(output["pred_answer_rel"], answers["answer_rel"], reduction="none")
-            .masked_fill(~is_rel, 0)
-            .sum()
-            / rel_norm
+                F.cross_entropy(output["pred_answer_rel"],
+                                answers["answer_rel"], reduction="none")
+                .masked_fill(~is_rel, 0)
+                .sum()
+                / rel_norm
         )
-        rel_acc = (output["pred_answer_rel"].argmax(-1)) == answers["answer_rel"]
+        rel_acc = (output["pred_answer_rel"].argmax(-1)) == answers[
+            "answer_rel"]
         loss["accuracy_answer_rel"] = (
-            rel_acc[is_rel].sum() / is_rel.sum() if is_rel.any() else torch.as_tensor(1.0, device=device)
+            rel_acc[
+                is_rel].sum() / is_rel.sum() if is_rel.any() else torch.as_tensor(
+                1.0, device=device)
         )
 
         ## GLOBAL type
         global_norm = is_global.sum() if is_global.any() else 1.0
         loss["loss_answer_global"] = (
-            F.cross_entropy(output["pred_answer_global"], answers["answer_global"], reduction="none")
-            .masked_fill(~is_global, 0)
-            .sum()
-            / global_norm
+                F.cross_entropy(output["pred_answer_global"],
+                                answers["answer_global"], reduction="none")
+                .masked_fill(~is_global, 0)
+                .sum()
+                / global_norm
         )
-        global_acc = (output["pred_answer_global"].argmax(-1)) == answers["answer_global"]
+        global_acc = (output["pred_answer_global"].argmax(-1)) == answers[
+            "answer_global"]
         loss["accuracy_answer_global"] = (
-            global_acc[is_global].sum() / is_global.sum() if is_global.any() else torch.as_tensor(1.0, device=device)
+            global_acc[
+                is_global].sum() / is_global.sum() if is_global.any() else torch.as_tensor(
+                1.0, device=device)
         )
 
         ## CAT type
         cat_norm = is_cat.sum() if is_cat.any() else 1.0
         loss["loss_answer_cat"] = (
-            F.cross_entropy(output["pred_answer_cat"], answers["answer_cat"], reduction="none")
-            .masked_fill(~is_cat, 0)
-            .sum()
-            / cat_norm
+                F.cross_entropy(output["pred_answer_cat"],
+                                answers["answer_cat"], reduction="none")
+                .masked_fill(~is_cat, 0)
+                .sum()
+                / cat_norm
         )
-        cat_acc = (output["pred_answer_cat"].argmax(-1)) == answers["answer_cat"]
+        cat_acc = (output["pred_answer_cat"].argmax(-1)) == answers[
+            "answer_cat"]
         loss["accuracy_answer_cat"] = (
-            cat_acc[is_cat].sum() / is_cat.sum() if is_cat.any() else torch.as_tensor(1.0, device=device)
+            cat_acc[
+                is_cat].sum() / is_cat.sum() if is_cat.any() else torch.as_tensor(
+                1.0, device=device)
         )
 
         loss["accuracy_answer_total"] = (
-            type_acc
-            * (is_obj * obj_acc + is_rel * rel_acc + is_attr * attr_acc + is_global * global_acc + is_cat * cat_acc)
-        ).sum() / type_acc.numel()
+                                                type_acc
+                                                * (
+                                                            is_obj * obj_acc + is_rel * rel_acc + is_attr * attr_acc + is_global * global_acc + is_cat * cat_acc)
+                                        ).sum() / type_acc.numel()
 
         return loss
 
@@ -431,10 +475,13 @@ class QACriterionClevr(nn.Module):
 
     def forward(self, output, answers):
         loss = {}
-        loss["loss_answer_type"] = F.cross_entropy(output["pred_answer_type"], answers["answer_type"])
+        loss["loss_answer_type"] = F.cross_entropy(output["pred_answer_type"],
+                                                   answers["answer_type"])
 
-        type_acc = output["pred_answer_type"].argmax(-1) == answers["answer_type"]
-        loss["accuracy_answer_type"] = type_acc.sum() / answers["answer_type"].numel()
+        type_acc = output["pred_answer_type"].argmax(-1) == answers[
+            "answer_type"]
+        loss["accuracy_answer_type"] = type_acc.sum() / answers[
+            "answer_type"].numel()
 
         is_binary = answers["answer_type"] == 0
         is_attr = answers["answer_type"] == 1
@@ -442,59 +489,74 @@ class QACriterionClevr(nn.Module):
 
         binary_norm = is_binary.sum() if is_binary.any() else 1.0
         loss["loss_answer_binary"] = (
-            F.binary_cross_entropy_with_logits(output["pred_answer_binary"], answers["answer_binary"], reduction="none")
-            .masked_fill(~is_binary, 0)
-            .sum()
-            / binary_norm
+                F.binary_cross_entropy_with_logits(output["pred_answer_binary"],
+                                                   answers["answer_binary"],
+                                                   reduction="none")
+                .masked_fill(~is_binary, 0)
+                .sum()
+                / binary_norm
         )
-        bin_acc = (output["pred_answer_binary"].sigmoid() > 0.5) == answers["answer_binary"]
+        bin_acc = (output["pred_answer_binary"].sigmoid() > 0.5) == answers[
+            "answer_binary"]
         loss["accuracy_answer_binary"] = (
-            bin_acc[is_binary].sum() / is_binary.sum() if is_binary.any() else torch.as_tensor(1.0)
+            bin_acc[
+                is_binary].sum() / is_binary.sum() if is_binary.any() else torch.as_tensor(
+                1.0)
         )
 
         reg_norm = is_reg.sum() if is_reg.any() else 1.0
         loss["loss_answer_reg"] = (
-            F.cross_entropy(output["pred_answer_reg"], answers["answer_reg"], reduction="none")
-            .masked_fill(~is_reg, 0)
-            .sum()
-            / reg_norm
+                F.cross_entropy(output["pred_answer_reg"],
+                                answers["answer_reg"], reduction="none")
+                .masked_fill(~is_reg, 0)
+                .sum()
+                / reg_norm
         )
-        reg_acc = (output["pred_answer_reg"].argmax(-1)) == answers["answer_reg"]
-        loss["accuracy_answer_reg"] = reg_acc[is_reg].sum() / is_reg.sum() if is_reg.any() else torch.as_tensor(1.0)
+        reg_acc = (output["pred_answer_reg"].argmax(-1)) == answers[
+            "answer_reg"]
+        loss["accuracy_answer_reg"] = reg_acc[
+                                          is_reg].sum() / is_reg.sum() if is_reg.any() else torch.as_tensor(
+            1.0)
 
         attr_norm = is_attr.sum() if is_attr.any() else 1.0
         loss["loss_answer_attr"] = (
-            F.cross_entropy(output["pred_answer_attr"], answers["answer_attr"], reduction="none")
-            .masked_fill(~is_attr, 0)
-            .sum()
-            / attr_norm
+                F.cross_entropy(output["pred_answer_attr"],
+                                answers["answer_attr"], reduction="none")
+                .masked_fill(~is_attr, 0)
+                .sum()
+                / attr_norm
         )
-        attr_acc = (output["pred_answer_attr"].argmax(-1)) == answers["answer_attr"]
+        attr_acc = (output["pred_answer_attr"].argmax(-1)) == answers[
+            "answer_attr"]
         loss["accuracy_answer_attr"] = (
-            attr_acc[is_attr].sum() / is_attr.sum() if is_attr.any() else torch.as_tensor(1.0)
+            attr_acc[
+                is_attr].sum() / is_attr.sum() if is_attr.any() else torch.as_tensor(
+                1.0)
         )
 
         loss["accuracy_answer_total"] = (
-            type_acc * (is_binary * bin_acc + is_reg * reg_acc + is_attr * attr_acc)
-        ).sum() / type_acc.numel()
+                                                type_acc * (
+                                                    is_binary * bin_acc + is_reg * reg_acc + is_attr * attr_acc)
+                                        ).sum() / type_acc.numel()
 
         return loss
 
 
 def ArmEquation(arm):
-    x1,y1,x2,y2 = arm[:,0],arm[:,1],arm[:,2],arm[:,3]
-    A = y2-y1
-    B = x1-x2
-    C = x2*y1-x1*y2
-    #Ax + By + C = 0
+    x1, y1, x2, y2 = arm[:, 0], arm[:, 1], arm[:, 2], arm[:, 3]
+    A = y2 - y1
+    B = x1 - x2
+    C = x2 * y1 - x1 * y2
+    # Ax + By + C = 0
     return A, B, C
 
 
-def box_cxcywh_to_vertices(x):#x1,x1,x2,x2;y1,y2,y1,y2
-    x_c, y_c, w, h = x.unbind(-1)  
-    x = [(x_c - 0.5 * w),(x_c - 0.5 * w),(x_c + 0.5 * w),(x_c + 0.5 * w)]
-    y = [(y_c - 0.5 * h), (y_c + 0.5 * h),(y_c - 0.5 * h), (y_c + 0.5 * h)]   
-    return torch.stack(x, dim=-1),torch.stack(y, dim=-1)
+def box_cxcywh_to_vertices(x):  # x1,x1,x2,x2;y1,y2,y1,y2
+    x_c, y_c, w, h = x.unbind(-1)
+    x = [(x_c - 0.5 * w), (x_c - 0.5 * w), (x_c + 0.5 * w), (x_c + 0.5 * w)]
+    y = [(y_c - 0.5 * h), (y_c + 0.5 * h), (y_c - 0.5 * h), (y_c + 0.5 * h)]
+    return torch.stack(x, dim=-1), torch.stack(y, dim=-1)
+
 
 class SetCriterion(nn.Module):
     """This class computes the loss for DETR.
@@ -529,9 +591,12 @@ class SetCriterion(nn.Module):
         """
         idx = self._get_src_permutation_idx(indices)
         src_isfinal = outputs["pred_isfinal"][idx].squeeze(-1)
-        target_isfinal = torch.cat([t["isfinal"][i] for t, (_, i) in zip(targets, indices)], dim=0)
+        target_isfinal = torch.cat(
+            [t["isfinal"][i] for t, (_, i) in zip(targets, indices)], dim=0)
 
-        loss_isfinal = F.binary_cross_entropy_with_logits(src_isfinal, target_isfinal, reduction="none")
+        loss_isfinal = F.binary_cross_entropy_with_logits(src_isfinal,
+                                                          target_isfinal,
+                                                          reduction="none")
 
         losses = {}
         losses["loss_isfinal"] = loss_isfinal.sum() / num_boxes
@@ -549,7 +614,8 @@ class SetCriterion(nn.Module):
         targets dicts must contain the key "labels" containing a tensor of dim [nb_target_boxes]
         """
 
-        logits = outputs["pred_logits"].log_softmax(-1)  # BS x (num_queries) x (num_tokens)
+        logits = outputs["pred_logits"].log_softmax(
+            -1)  # BS x (num_queries) x (num_tokens)
 
         src_idx = self._get_src_permutation_idx(indices)
         tgt_idx = []
@@ -566,7 +632,8 @@ class SetCriterion(nn.Module):
 
         loss_ce = -(logits * target_sim).sum(-1)
 
-        eos_coef = torch.full(loss_ce.shape, self.eos_coef, device=target_sim.device)
+        eos_coef = torch.full(loss_ce.shape, self.eos_coef,
+                              device=target_sim.device)
         eos_coef[src_idx] = 1
 
         loss_ce = loss_ce * eos_coef
@@ -576,15 +643,19 @@ class SetCriterion(nn.Module):
 
         return losses
 
-    def loss_contrastive_align(self, outputs, targets, positive_map, indices, num_boxes):
+    def loss_contrastive_align(self, outputs, targets, positive_map, indices,
+                               num_boxes):
         bs = outputs["proj_queries"].shape[0]
         tokenized = outputs["tokenized"]
 
         normalized_text_emb = outputs["proj_tokens"]  # BS x (num_tokens) x hdim
-        normalized_img_emb = outputs["proj_queries"]  # BS x (num_queries) x hdim
+        normalized_img_emb = outputs[
+            "proj_queries"]  # BS x (num_queries) x hdim
 
         logits = (
-            torch.matmul(normalized_img_emb, normalized_text_emb.transpose(-1, -2)) / self.temperature
+                torch.matmul(normalized_img_emb,
+                             normalized_text_emb.transpose(-1,
+                                                           -2)) / self.temperature
         )  # BS x (num_queries) x (num_tokens)
 
         # construct a map such that positive_map[k, i,j] = True iff query i is associated to token j in batch item k
@@ -618,7 +689,8 @@ class SetCriterion(nn.Module):
                         continue
 
                     assert beg_pos is not None and end_pos is not None
-                    positive_map[i, idx_src[j], beg_pos : end_pos + 1].fill_(True)
+                    positive_map[i, idx_src[j], beg_pos: end_pos + 1].fill_(
+                        True)
 
         positive_map = positive_map.to(logits.device)
         positive_logits = -logits.masked_fill(~positive_map, 0)
@@ -630,7 +702,8 @@ class SetCriterion(nn.Module):
 
         nb_pos = positive_map.sum(2) + 1e-6
 
-        box_to_token_loss = ((pos_term / nb_pos + neg_term)).masked_fill(~boxes_with_pos, 0).sum()
+        box_to_token_loss = ((pos_term / nb_pos + neg_term)).masked_fill(
+            ~boxes_with_pos, 0).sum()
 
         tokens_with_pos = positive_map.any(1)
         pos_term = positive_logits.sum(1)
@@ -638,19 +711,22 @@ class SetCriterion(nn.Module):
 
         nb_pos = positive_map.sum(1) + 1e-6
 
-        tokens_to_boxes_loss = ((pos_term / nb_pos + neg_term)).masked_fill(~tokens_with_pos, 0).sum()
+        tokens_to_boxes_loss = ((pos_term / nb_pos + neg_term)).masked_fill(
+            ~tokens_with_pos, 0).sum()
         tot_loss = (box_to_token_loss + tokens_to_boxes_loss) / 2
 
         return {"loss_contrastive_align": tot_loss / num_boxes}
 
     @torch.no_grad()
-    def loss_cardinality(self, outputs, targets, positive_map, indices, num_boxes):
+    def loss_cardinality(self, outputs, targets, positive_map, indices,
+                         num_boxes):
         """Compute the cardinality error, ie the absolute error in the number of predicted non-empty boxes
         This is not really a loss, it is intended for logging purposes only. It doesn't propagate gradients
         """
         pred_logits = outputs["pred_logits"]
         device = pred_logits.device
-        tgt_lengths = torch.as_tensor([len(v["labels"]) for v in targets], device=device)
+        tgt_lengths = torch.as_tensor([len(v["labels"]) for v in targets],
+                                      device=device)
         ## Count the number of predictions that are NOT "no-object" (which is the last class)
         # normalized_text_emb = outputs["proj_tokens"]  # BS x (num_tokens) x hdim
         # normalized_img_emb = outputs["proj_queries"]  # BS x (num_queries) x hdim
@@ -672,7 +748,8 @@ class SetCriterion(nn.Module):
         assert "pred_boxes" in outputs
         idx = self._get_src_permutation_idx(indices)
         src_boxes = outputs["pred_boxes"][idx]
-        target_boxes = torch.cat([t["boxes"][i] for t, (_, i) in zip(targets, indices)], dim=0)
+        target_boxes = torch.cat(
+            [t["boxes"][i] for t, (_, i) in zip(targets, indices)], dim=0)
 
         loss_bbox = F.l1_loss(src_boxes, target_boxes, reduction="none")
 
@@ -680,7 +757,9 @@ class SetCriterion(nn.Module):
         losses["loss_bbox"] = loss_bbox.sum() / num_boxes
 
         loss_giou = 1 - torch.diag(
-            box_ops.generalized_box_iou(box_ops.box_cxcywh_to_xyxy(src_boxes), box_ops.box_cxcywh_to_xyxy(target_boxes))
+            box_ops.generalized_box_iou(box_ops.box_cxcywh_to_xyxy(src_boxes),
+                                        box_ops.box_cxcywh_to_xyxy(
+                                            target_boxes))
         )
         losses["loss_giou"] = loss_giou.sum() / num_boxes
         return losses
@@ -697,12 +776,15 @@ class SetCriterion(nn.Module):
         src_masks = outputs["pred_masks"]
 
         # TODO use valid to mask invalid areas due to padding in loss
-        target_masks, valid = NestedTensor.from_tensor_list([t["masks"] for t in targets]).decompose()
+        target_masks, valid = NestedTensor.from_tensor_list(
+            [t["masks"] for t in targets]).decompose()
         target_masks = target_masks.to(src_masks)
 
         src_masks = src_masks[src_idx]
         # upsample predictions to the target size
-        src_masks = interpolate(src_masks[:, None], size=target_masks.shape[-2:], mode="bilinear", align_corners=False)
+        src_masks = interpolate(src_masks[:, None],
+                                size=target_masks.shape[-2:], mode="bilinear",
+                                align_corners=False)
         src_masks = src_masks[:, 0].flatten(1)
 
         target_masks = target_masks[tgt_idx].flatten(1)
@@ -715,17 +797,20 @@ class SetCriterion(nn.Module):
 
     def _get_src_permutation_idx(self, indices):
         # permute predictions following indices
-        batch_idx = torch.cat([torch.full_like(src, i) for i, (src, _) in enumerate(indices)])
+        batch_idx = torch.cat(
+            [torch.full_like(src, i) for i, (src, _) in enumerate(indices)])
         src_idx = torch.cat([src for (src, _) in indices])
         return batch_idx, src_idx
 
     def _get_tgt_permutation_idx(self, indices):
         # permute targets following indices
-        batch_idx = torch.cat([torch.full_like(tgt, i) for i, (_, tgt) in enumerate(indices)])
+        batch_idx = torch.cat(
+            [torch.full_like(tgt, i) for i, (_, tgt) in enumerate(indices)])
         tgt_idx = torch.cat([tgt for (_, tgt) in indices])
         return batch_idx, tgt_idx
 
-    def get_loss(self, loss, outputs, targets, positive_map, indices, num_boxes, args=None, **kwargs):
+    def get_loss(self, loss, outputs, targets, positive_map, indices, num_boxes,
+                 args=None, **kwargs):
         loss_map = {
             "labels": self.loss_labels,
             "cardinality": self.loss_cardinality,
@@ -735,38 +820,57 @@ class SetCriterion(nn.Module):
             "contrastive_align": self.loss_contrastive_align,
         }
         assert loss in loss_map, f"do you really want to compute {loss} loss?"
-        return loss_map[loss](outputs, targets, positive_map, indices, num_boxes, **kwargs)
+        return loss_map[loss](outputs, targets, positive_map, indices,
+                              num_boxes, **kwargs)
 
     def arm_box_aligned_loss(self, outputs, targets, indices):
         assert "pred_boxes" in outputs
         idx = self._get_src_permutation_idx(indices)
         src_boxes = outputs["pred_boxes"][idx]
-        target_boxes = torch.cat([t["boxes"][i] for t, (_, i) in zip(targets, indices)], dim=0)
+        target_boxes = torch.cat(
+            [t["boxes"][i] for t, (_, i) in zip(targets, indices)], dim=0)
 
         bs = len(targets)
 
         null_list = [i for i in range(bs) if targets[i]['arm'].shape[0] == 0]
 
         pred_arm = outputs['pred_arm'][idx[0]]
-        target_arm = torch.cat([t["arm"][i] for t, (_, i) in zip(targets, indices)], dim=0)
+        target_arm = torch.cat(
+            [t["arm"][i] for t, (_, i) in zip(targets, indices)], dim=0)
 
         # Handle missing target arms
         for i in null_list:
-            targets[i]['arm'] = torch.tensor([-1, -1, -1, -1], device=pred_arm.device)
-            pred_arm = torch.vstack([pred_arm[0:i], torch.tensor([-1, -1, -1, -1], device=pred_arm.device), pred_arm[i:]])
-            target_arm = torch.vstack([target_arm[0:i], torch.tensor([-1, -1, -1, -1], device=pred_arm.device), target_arm[i:]])
-            src_boxes = torch.vstack([src_boxes[0:i], torch.tensor([-1, -1, -1, -1], device=pred_arm.device), src_boxes[i:]])
-            target_boxes = torch.vstack([target_boxes[0:i], torch.tensor([-1, -1, -1, -1], device=pred_arm.device), target_boxes[i:]])
+            targets[i]['arm'] = torch.tensor([-1, -1, -1, -1],
+                                             device=pred_arm.device)
+            pred_arm = torch.vstack([pred_arm[0:i],
+                                     torch.tensor([-1, -1, -1, -1],
+                                                  device=pred_arm.device),
+                                     pred_arm[i:]])
+            target_arm = torch.vstack([target_arm[0:i],
+                                       torch.tensor([-1, -1, -1, -1],
+                                                    device=pred_arm.device),
+                                       target_arm[i:]])
+            src_boxes = torch.vstack([src_boxes[0:i],
+                                      torch.tensor([-1, -1, -1, -1],
+                                                   device=pred_arm.device),
+                                      src_boxes[i:]])
+            target_boxes = torch.vstack([target_boxes[0:i],
+                                         torch.tensor([-1, -1, -1, -1],
+                                                      device=pred_arm.device),
+                                         target_boxes[i:]])
 
         assert pred_arm.shape[0] == len(targets)
         assert target_arm.shape[0] == pred_arm.shape[0]
 
         if USE_GT__ARM_FOR_ARM_BOX_ALIGN_LOSS:
-            arm_tensor = target_arm[:, 2:4] - target_arm[:, 0:2]    # eye to fingertip
-            box_tensor = src_boxes[:, :2] - target_arm[:, 0:2]      # eye to box center
+            arm_tensor = target_arm[:, 2:4] - target_arm[:,
+                                              0:2]  # eye to fingertip
+            box_tensor = src_boxes[:, :2] - target_arm[:,
+                                            0:2]  # eye to box center
         else:
-            arm_tensor = pred_arm[:, 2:4] - pred_arm[:, 0:2]        # eye to fingertip
-            box_tensor = src_boxes[:, :2] - pred_arm[:, 0:2]        # eye to box center
+            arm_tensor = pred_arm[:, 2:4] - pred_arm[:, 0:2]  # eye to fingertip
+            box_tensor = src_boxes[:, :2] - pred_arm[:,
+                                            0:2]  # eye to box center
 
         # Cosine similarity between predicted eye-to-fingertip and eye-to-box
         assert (arm_tensor.shape[0] == box_tensor.shape[0])
@@ -787,25 +891,27 @@ class SetCriterion(nn.Module):
 
         return arm_box_aligned_loss
 
-
     def contrastive_obj_loss(self, outputs, targets, matched_idx):
         bs, num_queries = outputs["pred_boxes"].shape[:2]
         out_bbox = outputs["pred_boxes"]
         # Also concat the target labels and boxes
-        #tgt_bbox = torch.cat([v["boxes"] for v in targets])
+        # tgt_bbox = torch.cat([v["boxes"] for v in targets])
         # Compute the giou cost betwen boxes
         contrastive_obj_loss = 0.0
         for i in range(bs):
             gt_box = targets[i]['boxes']
             if gt_box.shape[0] == 0:
                 continue
-            giou = generalized_box_iou(box_cxcywh_to_xyxy(out_bbox[i]), box_cxcywh_to_xyxy(gt_box))
+            giou = generalized_box_iou(box_cxcywh_to_xyxy(out_bbox[i]),
+                                       box_cxcywh_to_xyxy(gt_box))
             iou_idx = (giou > 0.75)
             iou_idx[matched_idx[i][0]] = True
             exp_scores = torch.exp(outputs["pred_scores"][i])
             postive_score = exp_scores * iou_idx
             negtive_score = exp_scores - postive_score
-            contrastive_obj_loss = contrastive_obj_loss - torch.log(postive_score.sum()/(postive_score.sum() + negtive_score.sum()))
+            contrastive_obj_loss = contrastive_obj_loss - torch.log(
+                postive_score.sum() / (
+                            postive_score.sum() + negtive_score.sum()))
         return contrastive_obj_loss
 
     def forward(self, outputs, targets, positive_map, args=None):
@@ -817,7 +923,8 @@ class SetCriterion(nn.Module):
         """
 
         # TODO: bug. Remove arm aux outputs
-        outputs_without_aux = {k: v for k, v in outputs.items() if k != "aux_outputs"}
+        outputs_without_aux = {k: v for k, v in outputs.items() if
+                               k != "aux_outputs"}
 
         if 'pred_arm' not in outputs_without_aux.keys():
             raise RuntimeError('missing predicted arm from outputs')
@@ -826,34 +933,41 @@ class SetCriterion(nn.Module):
 
         # Compute the average number of target boxes accross all nodes, for normalization purposes
         num_boxes = sum(len(t["labels"]) for t in targets)
-        num_boxes = torch.as_tensor([num_boxes], dtype=torch.float, device=next(iter(outputs.values())).device)
+        num_boxes = torch.as_tensor([num_boxes], dtype=torch.float,
+                                    device=next(iter(outputs.values())).device)
         if dist.is_dist_avail_and_initialized():
             torch.distributed.all_reduce(num_boxes)
         num_boxes = torch.clamp(num_boxes / dist.get_world_size(), min=1).item()
 
         # Compute all the requested losses
-        losses = {}     
+        losses = {}
 
         # contrastive_obj_loss = self.contrastive_obj_loss(outputs_without_aux,targets,indices)
         # losses.update({'contrastive_obj_loss':contrastive_obj_loss})
 
         if 'pred_arm' in outputs:
-            arm_box_aligned_loss = self.arm_box_aligned_loss(outputs, targets, indices)
+            arm_box_aligned_loss = self.arm_box_aligned_loss(outputs, targets,
+                                                             indices)
             losses.update({'arm_box_aligned_loss': arm_box_aligned_loss})
-        
+
         for loss in self.losses:
-            losses.update(self.get_loss(loss, outputs, targets, positive_map, indices, num_boxes, args=args))
+            losses.update(
+                self.get_loss(loss, outputs, targets, positive_map, indices,
+                              num_boxes, args=args))
 
         # In case of auxiliary losses, we repeat this process with the output of each intermediate layer.
         if "aux_outputs" in outputs:
             for i, aux_outputs in enumerate(outputs["aux_outputs"]):
-                indices = self.matcher(aux_outputs, targets, positive_map, aux=True)
+                indices = self.matcher(aux_outputs, targets, positive_map,
+                                       aux=True)
                 for loss in self.losses:
                     if loss == "masks":
                         # Intermediate masks losses are too costly to compute, we ignore them.
                         continue
                     kwargs = {}
-                    l_dict = self.get_loss(loss, aux_outputs, targets, positive_map, indices, num_boxes, **kwargs)
+                    l_dict = self.get_loss(loss, aux_outputs, targets,
+                                           positive_map, indices, num_boxes,
+                                           **kwargs)
                     l_dict = {k + f"_{i}": v for k, v in l_dict.items()}
                     losses.update(l_dict)
 
@@ -861,13 +975,13 @@ class SetCriterion(nn.Module):
 
 
 def get_pose_loss(arm, arm_class, target_arm, idx=0):
-
     loss_scaling_factor_for_missing_annotations = 1
 
     # Handle missing eye to fingertip annotations in the yourefit valid set
     if REPLACE_ARM_WITH_EYE_TO_FINGERTIP:
         # Determine which images in the batch do not have eye to fingertip annotations
-        missing_eye_to_fingertip_annotations = [bool((k < 0).sum() > 0) for k in target_arm]
+        missing_eye_to_fingertip_annotations = [bool((k < 0).sum() > 0) for k in
+                                                target_arm]
         # Handle missing annotations by setting predictions equal to targets
         for i in range(len(missing_eye_to_fingertip_annotations)):
             if missing_eye_to_fingertip_annotations[i]:
@@ -876,20 +990,23 @@ def get_pose_loss(arm, arm_class, target_arm, idx=0):
         for i in range(len(missing_eye_to_fingertip_annotations)):
             if missing_eye_to_fingertip_annotations[i]:
                 num_images_with_missing_annotations += 1
-        loss_scaling_factor_for_missing_annotations = (len(target_arm) - num_images_with_missing_annotations) / len(
+        loss_scaling_factor_for_missing_annotations = (
+                                                                  len(target_arm) - num_images_with_missing_annotations) / len(
             target_arm)
 
-    bs,num = arm.shape[0], arm.shape[1]
+    bs, num = arm.shape[0], arm.shape[1]
     null_list = [i for i in range(bs) if target_arm[i].shape[0] == 0]
     for i in null_list:
         target_arm[i] = torch.tensor([[0.0, 0.0, 1.0, 1.0]]).to(arm.device)
 
     target_arm = torch.cat(target_arm, 0)
-    l1_dist = F.l1_loss(arm, target_arm.unsqueeze(1).repeat(1, 10, 1), reduction='none').sum(dim=2)
+    l1_dist = F.l1_loss(arm, target_arm.unsqueeze(1).repeat(1, 10, 1),
+                        reduction='none').sum(dim=2)
     min_dist, min_idx = torch.min(l1_dist, dim=1)
 
     cls_weights = [0.2, 0.8]
-    class_criterion = nn.CrossEntropyLoss(torch.Tensor(cls_weights).to(arm.device), reduction='none')
+    class_criterion = nn.CrossEntropyLoss(
+        torch.Tensor(cls_weights).to(arm.device), reduction='none')
     arm_cls_label = torch.zeros((bs, num), dtype=torch.long).to(arm.device)
 
     arm_loss = torch.tensor(0, dtype=target_arm.dtype, device=target_arm.device)
@@ -898,17 +1015,22 @@ def get_pose_loss(arm, arm_class, target_arm, idx=0):
             continue
         arm_cls_label[i, min_idx[i]] = 1
         arm_loss = arm_loss + min_dist[i]
-    
-    score_loss = class_criterion(arm_class.softmax(dim=2).transpose(2, 1), arm_cls_label).sum() / (num * loss_scaling_factor_for_missing_annotations)
+
+    score_loss = class_criterion(arm_class.softmax(dim=2).transpose(2, 1),
+                                 arm_cls_label).sum() / (
+                             num * loss_scaling_factor_for_missing_annotations)
 
     pose_loss = ARM_LOSS_COEF * arm_loss + ARM_SCORE_LOSS_COEF * score_loss
     arm = arm.unsqueeze(2)
-    matched_arm = torch.cat([i[j] for i,j in zip(arm,min_idx)], dim=0)
-    
+    matched_arm = torch.cat([i[j] for i, j in zip(arm, min_idx)], dim=0)
+
     for i in null_list:
         matched_arm[i] = torch.tensor([0.0, 0.0, 0.0, 0.0]).to(arm.device)
-    
-    return {'pose_loss_{0}'.format(idx):pose_loss,'arm_loss_{0}'.format(idx):arm_loss,'arm_score_loss_{0}'.format(idx):score_loss},target_arm, matched_arm
+
+    return {'pose_loss_{0}'.format(idx): pose_loss,
+            'arm_loss_{0}'.format(idx): arm_loss, 'arm_score_loss_{0}'.format(
+            idx): score_loss}, target_arm, matched_arm
+
 
 class MLP(nn.Module):
     """ Very simple multi-layer perceptron (also called FFN)"""
@@ -917,7 +1039,8 @@ class MLP(nn.Module):
         super().__init__()
         self.num_layers = num_layers
         h = [hidden_dim] * (num_layers - 1)
-        self.layers = nn.ModuleList(nn.Linear(n, k) for n, k in zip([input_dim] + h, h + [output_dim]))
+        self.layers = nn.ModuleList(
+            nn.Linear(n, k) for n, k in zip([input_dim] + h, h + [output_dim]))
 
     def forward(self, x):
         for i, layer in enumerate(self.layers):
@@ -926,7 +1049,7 @@ class MLP(nn.Module):
 
 
 def build(args):
-    num_classes = 255 
+    num_classes = 255
     device = torch.device(args.device)
 
     assert not args.masks or args.mask_model != "none"
@@ -934,7 +1057,6 @@ def build(args):
     qa_dataset = None
 
     backbone = build_backbone(args)
-
 
     transformer = build_transformer(args)
     args.contrastive_align_loss = True
@@ -959,11 +1081,12 @@ def build(args):
             freeze_detr=(args.frozen_weights is not None),
         )
     matcher = build_matcher(args)
-    weight_dict = {"loss_ce": args.ce_loss_coef, "loss_bbox": args.bbox_loss_coef}
+    weight_dict = {"loss_ce": args.ce_loss_coef,
+                   "loss_bbox": args.bbox_loss_coef}
     for i in range(3):
         weight_dict['pose_loss_{0}'.format(i)] = 1
     weight_dict['arm_box_aligned_loss'] = ARM_BOX_ALIGN_LOSS_COEF
-    weight_dict['contrastive_obj_loss']=1
+    weight_dict['contrastive_obj_loss'] = 1
     if args.contrastive_loss:
         weight_dict["contrastive_loss"] = args.contrastive_loss_coef
     if args.contrastive_align_loss:
@@ -980,10 +1103,11 @@ def build(args):
     if args.aux_loss:
         aux_weight_dict = {}
         for i in range(args.dec_layers - 1):
-            aux_weight_dict.update({k + f"_{i}": v for k, v in weight_dict.items()})
+            aux_weight_dict.update(
+                {k + f"_{i}": v for k, v in weight_dict.items()})
         weight_dict.update(aux_weight_dict)
 
-    losses = ["boxes", "labels"] #, "cardinality"]
+    losses = ["boxes", "labels"]  # , "cardinality"]
     if args.masks:
         losses += ["masks"]
     if args.predict_final:
@@ -1003,16 +1127,16 @@ def build(args):
         criterion.to(device)
 
     if args.contrastive_loss:
-        contrastive_criterion = ContrastiveCriterion(temperature=args.temperature_NCE)
+        contrastive_criterion = ContrastiveCriterion(
+            temperature=args.temperature_NCE)
         contrastive_criterion.to(device)
     else:
         contrastive_criterion = None
-
 
     qa_criterion = None
     return model, criterion, contrastive_criterion, qa_criterion, weight_dict
 
 
 if __name__ == '__main__':
-    pe = ConstrainedLearnablePE(512,10)
-    pe(0.1,0.1,0.2,0.2)
+    pe = ConstrainedLearnablePE(512, 10)
+    pe(0.1, 0.1, 0.2, 0.2)

@@ -16,7 +16,7 @@ import util.dist as dist
 from datasets.clevrref import ClevrRefEvaluator
 from datasets.coco_eval import CocoEvaluator
 from datasets.flickr_eval import FlickrEvaluator
-#from datasets.phrasecut_eval import PhrasecutEvaluator
+# from datasets.phrasecut_eval import PhrasecutEvaluator
 from datasets.refexp import RefExpEvaluator
 from util.metrics import MetricLogger, SmoothedValue
 from util.misc import targets_to
@@ -29,18 +29,18 @@ import pandas as pd
 
 
 def train_one_epoch(
-    model: torch.nn.Module,
-    criterion: Optional[torch.nn.Module],
-    contrastive_criterion: Optional[torch.nn.Module],
-    qa_criterion: Optional[torch.nn.Module],
-    weight_dict: Dict[str, float],
-    data_loader: Iterable,
-    optimizer: torch.optim.Optimizer,
-    device: torch.device,
-    epoch: int,
-    args,
-    max_norm: float = 0,
-    model_ema: Optional[torch.nn.Module] = None,
+        model: torch.nn.Module,
+        criterion: Optional[torch.nn.Module],
+        contrastive_criterion: Optional[torch.nn.Module],
+        qa_criterion: Optional[torch.nn.Module],
+        weight_dict: Dict[str, float],
+        data_loader: Iterable,
+        optimizer: torch.optim.Optimizer,
+        device: torch.device,
+        epoch: int,
+        args,
+        max_norm: float = 0,
+        model_ema: Optional[torch.nn.Module] = None,
 ):
     model.train()
     if criterion is not None:
@@ -50,9 +50,12 @@ def train_one_epoch(
     if qa_criterion is not None:
         qa_criterion.train()
     metric_logger = MetricLogger(delimiter="  ")
-    metric_logger.add_meter("lr", SmoothedValue(window_size=1, fmt="{value:.6f}"))
-    metric_logger.add_meter("lr_backbone", SmoothedValue(window_size=1, fmt="{value:.6f}"))
-    metric_logger.add_meter("lr_text_encoder", SmoothedValue(window_size=1, fmt="{value:.6f}"))
+    metric_logger.add_meter("lr",
+                            SmoothedValue(window_size=1, fmt="{value:.6f}"))
+    metric_logger.add_meter("lr_backbone",
+                            SmoothedValue(window_size=1, fmt="{value:.6f}"))
+    metric_logger.add_meter("lr_text_encoder",
+                            SmoothedValue(window_size=1, fmt="{value:.6f}"))
     header = "Epoch: [{}]".format(epoch)
     print_freq = 10
 
@@ -66,16 +69,20 @@ def train_one_epoch(
     list_for_ymax = []
 
     num_training_steps = int(len(data_loader) * args.epochs)
-    for i, batch_dict in enumerate(metric_logger.log_every(data_loader, print_freq, header,args.output_dir)):
+    for i, batch_dict in enumerate(
+            metric_logger.log_every(data_loader, print_freq, header,
+                                    args.output_dir)):
         curr_step = epoch * len(data_loader) + i
         samples = batch_dict["samples"].to(device)
-        positive_map = batch_dict["positive_map"].to(device) if "positive_map" in batch_dict else None
+        positive_map = batch_dict["positive_map"].to(
+            device) if "positive_map" in batch_dict else None
         targets = batch_dict["targets"]
-        answers = {k: v.to(device) for k, v in batch_dict["answers"].items()} if "answers" in batch_dict else None
+        answers = {k: v.to(device) for k, v in batch_dict[
+            "answers"].items()} if "answers" in batch_dict else None
         captions = [t["caption"] for t in targets]
 
         targets = targets_to(targets, device)
-        
+
         pafs = None
         yourefit = True
         target_arms = None
@@ -84,12 +91,11 @@ def train_one_epoch(
             target_arms = []
             for target in targets:
                 paf_list.append(target['ht_map'])
-                if target['arm'].shape[0]==4:
+                if target['arm'].shape[0] == 4:
                     target['arm'] = target['arm'].unsqueeze(0)
                 target_arms.append(target['arm'])
             from util.misc import NestedTensor
-            pafs =  NestedTensor.from_tensor_list(paf_list)
-
+            pafs = NestedTensor.from_tensor_list(paf_list)
 
         loss_dict = {}
         memory_cache = None
@@ -99,11 +105,16 @@ def train_one_epoch(
         if args.masks:
             outputs = model(samples, captions)
         else:
-            memory_cache, pose_out = model(samples, captions, encode_and_save=True,paf_samples=pafs)
+            memory_cache, pose_out = model(samples, captions,
+                                           encode_and_save=True,
+                                           paf_samples=pafs)
             if pose_out is not None:
                 for k in range(3):
-                    pose_loss,target_arm,pred_arm = \
-                        get_pose_loss(pose_out['{0}_arms'.format(k)], pose_out['{0}_arm_score'.format(k)], target_arms, k)
+                    pose_loss, target_arm, pred_arm = \
+                        get_pose_loss(pose_out['{0}_arms'.format(k)],
+                                      pose_out['{0}_arm_score'.format(k)],
+                                      target_arms,
+                                      k)
                     loss_dict.update(pose_loss)
 
             # Pass in the encodings of memory_cache['tokenized'].
@@ -113,17 +124,21 @@ def train_one_epoch(
             # function below sometimes become empty if not pass in
             # the encodings of memory_cache['tokenized'] and manually set it
             # in the function below.
-            outputs = model(samples, captions, encode_and_save=False, memory_cache=memory_cache,arm_query=target_arm, encodings_of_tokenized=memory_cache['tokenized']._encodings)
+            outputs = model(samples, captions, encode_and_save=False,
+                            memory_cache=memory_cache, arm_query=target_arm,
+                            encodings_of_tokenized=memory_cache[
+                                'tokenized']._encodings)
 
             # Add pred_arm into outputs
             if pose_out is not None:
-                outputs.update({'pred_arm':pred_arm}) #last layer
+                outputs.update({'pred_arm': pred_arm})  # last layer
                 outputs.update(pose_out)
 
             # Save predictions to lists and write them into a file
             if SAVE_MDETR_PREDICTIONS:
                 for j in range(len(targets)):
-                    current_pred_logits = outputs['pred_logits'][j].detach().cpu()
+                    current_pred_logits = outputs['pred_logits'][
+                        j].detach().cpu()
                     current_pred_boxes = outputs['pred_boxes'][j].detach().cpu()
                     current_img_name = targets[j]['img_name']
 
@@ -139,7 +154,8 @@ def train_one_epoch(
                         # cxcywh to xmin, ymin, xmax, ymax
                         box = current_pred_boxes[k]
                         cx, cy, w, h = box
-                        xmin, ymin, xmax, ymax = [cx - w/2, cy - h/2, cx + w/2, cy + h/2]
+                        xmin, ymin, xmax, ymax = [cx - w / 2, cy - h / 2,
+                                                  cx + w / 2, cy + h / 2]
 
                         list_for_pred_scores.append(score.item())
                         list_for_pred_classes.append(pred_class.item())
@@ -183,29 +199,34 @@ def train_one_epoch(
                     raise NotImplementedError('Done')
                 continue
 
-
             if pose_out is not None:
-                outputs.update({'pred_arm':pred_arm}) #last layer
+                outputs.update({'pred_arm': pred_arm})  # last layer
                 outputs.update(pose_out)
-                
+
         if criterion is not None:
-            loss_dict.update(criterion(outputs, targets, positive_map, args=args))
+            loss_dict.update(
+                criterion(outputs, targets, positive_map, args=args))
 
         if contrastive_criterion is not None:
             assert memory_cache is not None
-            contrastive_loss = contrastive_criterion(memory_cache["text_pooled_op"], memory_cache["img_pooled_op"])
+            contrastive_loss = contrastive_criterion(
+                memory_cache["text_pooled_op"], memory_cache["img_pooled_op"])
             loss_dict["contrastive_loss"] = contrastive_loss
 
         if qa_criterion is not None:
             answer_losses = qa_criterion(outputs, answers)
             loss_dict.update(answer_losses)
 
-        losses = sum(loss_dict[k] * weight_dict[k] for k in loss_dict.keys() if k in weight_dict)
-        
+        losses = sum(loss_dict[k] * weight_dict[k] for k in loss_dict.keys() if
+                     k in weight_dict)
+
         # reduce losses over all GPUs for logging purposes
         loss_dict_reduced = dist.reduce_dict(loss_dict)
-        loss_dict_reduced_unscaled = {f"{k}_unscaled": v for k, v in loss_dict_reduced.items()}
-        loss_dict_reduced_scaled = {k: v * weight_dict[k] for k, v in loss_dict_reduced.items() if k in weight_dict}
+        loss_dict_reduced_unscaled = {f"{k}_unscaled": v for k, v in
+                                      loss_dict_reduced.items()}
+        loss_dict_reduced_scaled = {k: v * weight_dict[k] for k, v in
+                                    loss_dict_reduced.items() if
+                                    k in weight_dict}
         losses_reduced_scaled = sum(loss_dict_reduced_scaled.values())
 
         loss_value = losses_reduced_scaled.item()
@@ -231,7 +252,8 @@ def train_one_epoch(
         if model_ema is not None:
             update_ema(model, model_ema, args.ema_decay)
 
-        metric_logger.update(loss=loss_value, **loss_dict_reduced_scaled, **loss_dict_reduced_unscaled)
+        metric_logger.update(loss=loss_value, **loss_dict_reduced_scaled,
+                             **loss_dict_reduced_unscaled)
         metric_logger.update(lr=optimizer.param_groups[0]["lr"])
         metric_logger.update(lr_backbone=optimizer.param_groups[1]["lr"])
         metric_logger.update(lr_text_encoder=optimizer.param_groups[2]["lr"])
@@ -243,16 +265,16 @@ def train_one_epoch(
 
 @torch.no_grad()
 def evaluate(
-    model: torch.nn.Module,
-    criterion: Optional[torch.nn.Module],
-    contrastive_criterion: Optional[torch.nn.Module],
-    qa_criterion: Optional[torch.nn.Module],
-    postprocessors: Dict[str, torch.nn.Module],
-    weight_dict: Dict[str, float],
-    data_loader,
-    evaluator_list,
-    device: torch.device,
-    args,
+        model: torch.nn.Module,
+        criterion: Optional[torch.nn.Module],
+        contrastive_criterion: Optional[torch.nn.Module],
+        qa_criterion: Optional[torch.nn.Module],
+        postprocessors: Dict[str, torch.nn.Module],
+        weight_dict: Dict[str, float],
+        data_loader,
+        evaluator_list,
+        device: torch.device,
+        args,
 ):
     model.eval()
     if criterion is not None:
@@ -266,12 +288,15 @@ def evaluate(
     header = "Test:"
 
     eval_count = 0
-    
-    for batch_dict in metric_logger.log_every(data_loader, 10, header, args.output_dir):
+
+    for batch_dict in metric_logger.log_every(data_loader, 10, header,
+                                              args.output_dir):
         samples = batch_dict["samples"].to(device)
-        positive_map = batch_dict["positive_map"].to(device) if "positive_map" in batch_dict else None
+        positive_map = batch_dict["positive_map"].to(
+            device) if "positive_map" in batch_dict else None
         targets = batch_dict["targets"]
-        answers = {k: v.to(device) for k, v in batch_dict["answers"].items()} if "answers" in batch_dict else None
+        answers = {k: v.to(device) for k, v in batch_dict[
+            "answers"].items()} if "answers" in batch_dict else None
         captions = [t["caption"] for t in targets]
         img_names = [t["img_name"] for t in targets]
 
@@ -285,12 +310,11 @@ def evaluate(
             target_arms = []
             for target in targets:
                 paf_list.append(target['ht_map'])
-                if target['arm'].shape[0]==4:
+                if target['arm'].shape[0] == 4:
                     target['arm'] = target['arm'].unsqueeze(0)
                 target_arms.append(target['arm'])
             from util.misc import NestedTensor
-            pafs =  NestedTensor.from_tensor_list(paf_list)
-
+            pafs = NestedTensor.from_tensor_list(paf_list)
 
         loss_dict = {}
         memory_cache = None
@@ -298,16 +322,21 @@ def evaluate(
         pred_arm = None
         pose_out = None
 
-        #embed()
-        memory_cache, pose_out = model(samples, captions, encode_and_save=True,paf_samples=pafs,img_names=img_names)
+        # embed()
+        memory_cache, pose_out = model(samples, captions, encode_and_save=True,
+                                       paf_samples=pafs, img_names=img_names)
         if pose_out is not None:
             for i in range(3):
-                pose_loss,target_arm,pred_arm = \
-                    get_pose_loss(pose_out['{0}_arms'.format(i)],pose_out['{0}_arm_score'.format(i)],target_arms,i)
-                loss_dict.update(pose_loss) 
-        outputs = model(samples, captions, encode_and_save=False, memory_cache=memory_cache,arm_query=target_arm,img_names=img_names)
+                pose_loss, target_arm, pred_arm = \
+                    get_pose_loss(pose_out['{0}_arms'.format(i)],
+                                  pose_out['{0}_arm_score'.format(i)],
+                                  target_arms, i)
+                loss_dict.update(pose_loss)
+        outputs = model(samples, captions, encode_and_save=False,
+                        memory_cache=memory_cache, arm_query=target_arm,
+                        img_names=img_names)
         if pose_out is not None:
-            outputs.update({'pred_arm':pred_arm}) #last layer
+            outputs.update({'pred_arm': pred_arm})  # last layer
             outputs.update(pose_out)
 
         if criterion is not None:
@@ -315,7 +344,8 @@ def evaluate(
 
         if contrastive_criterion is not None:
             assert memory_cache is not None
-            contrastive_loss = contrastive_criterion(memory_cache["text_pooled_op"], memory_cache["img_pooled_op"])
+            contrastive_loss = contrastive_criterion(
+                memory_cache["text_pooled_op"], memory_cache["img_pooled_op"])
             loss_dict["contrastive_loss"] = contrastive_loss
 
         if qa_criterion is not None:
@@ -324,8 +354,11 @@ def evaluate(
 
         # reduce losses over all GPUs for logging purposes
         loss_dict_reduced = dist.reduce_dict(loss_dict)
-        loss_dict_reduced_scaled = {k: v * weight_dict[k] for k, v in loss_dict_reduced.items() if k in weight_dict}
-        loss_dict_reduced_unscaled = {f"{k}_unscaled": v for k, v in loss_dict_reduced.items()}
+        loss_dict_reduced_scaled = {k: v * weight_dict[k] for k, v in
+                                    loss_dict_reduced.items() if
+                                    k in weight_dict}
+        loss_dict_reduced_unscaled = {f"{k}_unscaled": v for k, v in
+                                      loss_dict_reduced.items()}
         metric_logger.update(
             loss=sum(loss_dict_reduced_scaled.values()),
             **loss_dict_reduced_scaled,
@@ -333,11 +366,15 @@ def evaluate(
         )
 
         if not args.no_detection:
-            orig_target_sizes = torch.stack([t["orig_size"] for t in targets], dim=0)
-            results = postprocessors["bbox"](outputs, orig_target_sizes,img_names= img_names)
+            orig_target_sizes = torch.stack([t["orig_size"] for t in targets],
+                                            dim=0)
+            results = postprocessors["bbox"](outputs, orig_target_sizes,
+                                             img_names=img_names)
             if "segm" in postprocessors.keys():
                 target_sizes = torch.stack([t["size"] for t in targets], dim=0)
-                results = postprocessors["segm"](results, outputs, orig_target_sizes, target_sizes)
+                results = postprocessors["segm"](results, outputs,
+                                                 orig_target_sizes,
+                                                 target_sizes)
 
             flickr_res = [] if "flickr_bbox" in postprocessors.keys() else None
             if "flickr_bbox" in postprocessors.keys():
@@ -346,11 +383,16 @@ def evaluate(
                 items_per_batch_element = [t["nb_eval"] for t in targets]
                 positive_map_eval = batch_dict["positive_map_eval"].to(device)
                 flickr_results = postprocessors["flickr_bbox"](
-                    outputs, orig_target_sizes, positive_map_eval, items_per_batch_element
+                    outputs, orig_target_sizes, positive_map_eval,
+                    items_per_batch_element
                 )
-                assert len(flickr_results) == len(image_ids) == len(sentence_ids)
-                for im_id, sent_id, output in zip(image_ids, sentence_ids, flickr_results):
-                    flickr_res.append({"image_id": im_id, "sentence_id": sent_id, "boxes": output})
+                assert len(flickr_results) == len(image_ids) == len(
+                    sentence_ids)
+                for im_id, sent_id, output in zip(image_ids, sentence_ids,
+                                                  flickr_results):
+                    flickr_res.append(
+                        {"image_id": im_id, "sentence_id": sent_id,
+                         "boxes": output})
 
             phrasecut_res = None
             if "phrasecut" in postprocessors.keys():
@@ -360,7 +402,8 @@ def evaluate(
                     phrasecut_res[i]["original_id"] = targets[i]["original_id"]
                     phrasecut_res[i]["task_id"] = targets[i]["task_id"]
 
-            res = {target["image_id"].item(): output for target, output in zip(targets, results)}
+            res = {target["image_id"].item(): output for target, output in
+                   zip(targets, results)}
             for evaluator in evaluator_list:
                 if isinstance(evaluator, FlickrEvaluator):
                     evaluator.update(flickr_res)
@@ -370,7 +413,6 @@ def evaluate(
         eval_count += 1
         if EVAL_EARLY_STOP and eval_count >= EVAL_EARLY_STOP_COUNT:
             break
-
 
     # gather the stats from all processes
     metric_logger.synchronize_between_processes()
@@ -398,9 +440,11 @@ def evaluate(
     for evaluator in evaluator_list:
         if isinstance(evaluator, CocoEvaluator):
             if "bbox" in postprocessors.keys():
-                stats["coco_eval_bbox"] = evaluator.coco_eval["bbox"].stats.tolist()
+                stats["coco_eval_bbox"] = evaluator.coco_eval[
+                    "bbox"].stats.tolist()
             if "segm" in postprocessors.keys():
-                stats["coco_eval_masks"] = evaluator.coco_eval["segm"].stats.tolist()
+                stats["coco_eval_masks"] = evaluator.coco_eval[
+                    "segm"].stats.tolist()
 
     if refexp_res is not None:
         stats.update(refexp_res)
@@ -413,8 +457,5 @@ def evaluate(
 
     if yourefit_res is not None:
         stats.update(yourefit_res)
-        
+
     return stats
-
-
-

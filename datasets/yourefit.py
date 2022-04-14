@@ -32,6 +32,7 @@ import pickle5 as pickle
 import re
 import util.dist as dist
 from transformers import RobertaTokenizerFast
+
 sys.path.append('./datasets')
 from .yourefit_token import match_pos
 import copy
@@ -41,10 +42,12 @@ import pandas as pd
 
 cv2.setNumThreads(0)
 
-
 mdetr_predictions = pd.read_csv(MDETR_PREDICTION_PATH)
-eye_to_fingertip_annotation_df_train = pd.read_csv(EYE_TO_FINGERTIP_ANNOTATION_TRAIN_PATH)
-eye_to_fingertip_annotation_df_valid = pd.read_csv(EYE_TO_FINGERTIP_ANNOTATION_VALID_PATH)
+eye_to_fingertip_annotation_df_train = pd.read_csv(
+    EYE_TO_FINGERTIP_ANNOTATION_TRAIN_PATH)
+eye_to_fingertip_annotation_df_valid = pd.read_csv(
+    EYE_TO_FINGERTIP_ANNOTATION_VALID_PATH)
+
 
 def create_positive_map(tokenized, tokens_positive):
     """construct a map such that positive_map[i,j] = True iff box i is associated to token j"""
@@ -71,21 +74,24 @@ def create_positive_map(tokenized, tokens_positive):
                 continue
 
             assert beg_pos is not None and end_pos is not None
-            positive_map[j, beg_pos : end_pos + 1].fill_(1)
+            positive_map[j, beg_pos: end_pos + 1].fill_(1)
     return positive_map / (positive_map.sum(-1)[:, None] + 1e-6)
 
 
 class DatasetNotFoundError(Exception):
     pass
 
+
 class ReferDataset(data.Dataset):
     SUPPORTED_DATASETS = {
         'yourefit': {'splits': ('train', 'val', 'test')}
     }
-    
-    def __init__(self, data_root, split_root='data', dataset='yourefit', 
-                 transform=None, augment=False, device=None, return_idx=False, testmode=False,
-                 split='train', max_query_len=128, lstm=False, bert_model='bert-base-uncased',args=None):
+
+    def __init__(self, data_root, split_root='data', dataset='yourefit',
+                 transform=None, augment=False, device=None, return_idx=False,
+                 testmode=False,
+                 split='train', max_query_len=128, lstm=False,
+                 bert_model='bert-base-uncased', args=None):
         self.images = []
         self.image_files = {}
         self.data_root = data_root
@@ -97,17 +103,18 @@ class ReferDataset(data.Dataset):
         self.testmode = testmode
         self.split = split
         self.device = device
-        self.augment=augment
-        self.return_idx=return_idx
-        self.tokenizer = RobertaTokenizerFast.from_pretrained(args.text_encoder_type)
+        self.augment = augment
+        self.return_idx = return_idx
+        self.tokenizer = RobertaTokenizerFast.from_pretrained(
+            args.text_encoder_type)
         if self.dataset == 'yourefit':
             self.dataset_root = osp.join(self.data_root, 'yourefit')
             self.im_dir = osp.join(self.dataset_root, 'images')
             self.inpaint_dir = osp.join(self.dataset_root, INPAINT_DIR)
             self.arm_dir = osp.join(self.dataset_root, 'arms.json')
-            with open(self.arm_dir,"r") as f:
+            with open(self.arm_dir, "r") as f:
                 self.arm_data = json.load(f)
-        else:   ## refcoco, etc.
+        else:  ## refcoco, etc.
             pass
         if not self.exists_dataset():
             print('Please download index cache to data folder')
@@ -124,14 +131,12 @@ class ReferDataset(data.Dataset):
         splits = [split]
         if self.dataset != 'referit':
             splits = ['train', 'val'] if split == 'trainval' else [split]
-        
-        
-        
-        
+
         for split in splits:
-            imgset_file = osp.join(self.dataset_root,'{0}_id.txt'.format(split))
-            
-            with open(imgset_file,'r') as f:
+            imgset_file = osp.join(self.dataset_root,
+                                   '{0}_id.txt'.format(split))
+
+            with open(imgset_file, 'r') as f:
                 while True:
                     img_name = f.readline()
                     if img_name:
@@ -143,12 +148,17 @@ class ReferDataset(data.Dataset):
                             # Check if current image has mdetr foreground prediction.
                             # If it does, append its name into image list.
                             has_mdetr_foreground_prediction = \
-                                mdetr_predictions[mdetr_predictions['img_name'] == img_name[:-1]].shape[0] > 0
+                                mdetr_predictions[
+                                    mdetr_predictions['img_name'] == img_name[
+                                                                     :-1]].shape[
+                                    0] > 0
                             if has_mdetr_foreground_prediction:
                                 self.images.append(img_name[:-1])
                         elif REPLACE_ARM_WITH_EYE_TO_FINGERTIP and self.split == 'train':
                             has_eye_to_fingertip_annotation = \
-                                eye_to_fingertip_annotation_df_train[eye_to_fingertip_annotation_df_train['name'] == img_name[:-1]].shape[0] > 0
+                                eye_to_fingertip_annotation_df_train[
+                                    eye_to_fingertip_annotation_df_train[
+                                        'name'] == img_name[:-1]].shape[0] > 0
                             if has_eye_to_fingertip_annotation:
                                 self.images.append(img_name[:-1])
                         else:
@@ -156,42 +166,42 @@ class ReferDataset(data.Dataset):
                     else:
                         break
             f.close()
-        
+
         for split_idx in range(len(self.images)):
             self.image_files[self.images[split_idx]] = split_idx
 
     def exists_dataset(self):
         return osp.exists(osp.join(self.split_root, self.dataset))
 
+    def pull_item_box(self, idx, return_img=False):
 
-    def pull_item_box(self, idx,return_img= False):
-        
-        #img_file, _, bbox, phrase, attri = self.images[idx]
+        # img_file, _, bbox, phrase, attri = self.images[idx]
         ## box format: to x1y1x2y2
         img_name = self.images[idx]
-        pickle_file = osp.join(osp.join(self.dataset_root,'pickle'),img_name+'.p')
-        pick = pickle.load(open(pickle_file, "rb" ))
+        pickle_file = osp.join(osp.join(self.dataset_root, 'pickle'),
+                               img_name + '.p')
+        pick = pickle.load(open(pickle_file, "rb"))
         bbox = pick['bbox']
-        bbox = np.array(bbox, dtype=int) #x1y1x2y2    
+        bbox = np.array(bbox, dtype=int)  # x1y1x2y2
         img = None
         if return_img:
-            img_path = osp.join(self.im_dir, img_name+'.jpg')
+            img_path = osp.join(self.im_dir, img_name + '.jpg')
             img = cv2.imread(img_path)
-        return bbox, img_name,img
-
+        return bbox, img_name, img
 
     def pull_item(self, idx):
-        
+
         img_name = self.images[idx]
         ## box format: to x1y1x2y2
-        pickle_file = osp.join(osp.join(self.dataset_root,'pickle'),img_name+'.p')
-        pick = pickle.load(open(pickle_file, "rb" ))
+        pickle_file = osp.join(osp.join(self.dataset_root, 'pickle'),
+                               img_name + '.p')
+        pick = pickle.load(open(pickle_file, "rb"))
         bbox = pick['bbox']
         target_word = pick['anno_target']
         phrase = pick['anno_sentence']
-        token_pos = match_pos(phrase,target_word)
+        token_pos = match_pos(phrase, target_word)
         token_pos = [token_pos]
-        bbox = np.array(bbox, dtype=int) #x1y1x2y2
+        bbox = np.array(bbox, dtype=int)  # x1y1x2y2
         if not REPLACE_IMAGES_WITH_INPAINT:
             img_path = osp.join(self.im_dir, img_name + '.jpg')
             img = Image.open(img_path).convert('RGB')
@@ -202,7 +212,8 @@ class ReferDataset(data.Dataset):
             except:
                 if util.dist.get_rank() == 0:
                     print()
-                    print('Missing inpaint for ' + img_name + ', using original image instead')
+                    print(
+                        'Missing inpaint for ' + img_name + ', using original image instead')
                     print()
                 img_path = osp.join(self.im_dir, img_name + '.jpg')
                 img = Image.open(img_path).convert('RGB')
@@ -210,15 +221,21 @@ class ReferDataset(data.Dataset):
         if USE_MDETR_PREDICTIONS_AS_GROUNDTRUTHS and self.split == 'train':
             width = img.width
             height = img.height
-            df_for_current_image = mdetr_predictions[mdetr_predictions['img_name'] == img_name]
+            df_for_current_image = mdetr_predictions[
+                mdetr_predictions['img_name'] == img_name]
             if df_for_current_image.shape[0] > 0:
-                xmin, ymin, xmax, ymax = [df_for_current_image.xmin, df_for_current_image.ymin,
-                                          df_for_current_image.xmax, df_for_current_image.ymax]
-                xmin, ymin, xmax, ymax = [xmin * width, ymin * height, xmax * width, ymax * height]
-                xmin, ymin, xmax, ymax = [int(xmin), int(ymin), int(xmax), int(ymax)]
+                xmin, ymin, xmax, ymax = [df_for_current_image.xmin,
+                                          df_for_current_image.ymin,
+                                          df_for_current_image.xmax,
+                                          df_for_current_image.ymax]
+                xmin, ymin, xmax, ymax = [xmin * width, ymin * height,
+                                          xmax * width, ymax * height]
+                xmin, ymin, xmax, ymax = [int(xmin), int(ymin), int(xmax),
+                                          int(ymax)]
                 bbox = np.array([xmin, ymin, xmax, ymax])
             else:
-                raise RuntimeError('Using MDETR predictions as groundtruths, but current image does not have any mdetr foreground prediction')
+                raise RuntimeError(
+                    'Using MDETR predictions as groundtruths, but current image does not have any mdetr foreground prediction')
 
         htmapdir = self.im_dir.replace('images', 'paf')
         htmapfile = img_name + '_rendered.png'
@@ -226,12 +243,12 @@ class ReferDataset(data.Dataset):
         htmap = cv2.imread(htmap_path)
         ht = np.asarray(htmap)
         ht = np.mean(ht, axis=2)
-        
+
         ptdir = self.im_dir.replace('images', 'saliency')
         ptfile = img_name + '.jpeg'
         pt_path = osp.join(ptdir, ptfile)
         pt = cv2.imread(pt_path)
-        pt = cv2.resize(pt, (256,256))
+        pt = cv2.resize(pt, (256, 256))
         pt = np.reshape(pt, (3, 256, 256))
         arm = self.arm_data[img_name]
 
@@ -244,13 +261,15 @@ class ReferDataset(data.Dataset):
                 elif self.split == 'val':
                     df = eye_to_fingertip_annotation_df_valid
                 else:
-                    raise NotImplementedError('replace arm with eye to fingertip is only implemented for yourefit train and valid splits')
+                    raise NotImplementedError(
+                        'replace arm with eye to fingertip is only implemented for yourefit train and valid splits')
                 # Find out the coordinates of eye and fingertip
                 df_for_current_image = df[df['name'] == img_name]
                 if df_for_current_image.shape[0] == 0:
                     if self.split == 'train':
                         # For the training set, raise error if an image does not have eye to fingertip annotations.
-                        raise RuntimeError('Missing eye to fingertip annotation for image: ' + img_name)
+                        raise RuntimeError(
+                            'Missing eye to fingertip annotation for image: ' + img_name)
                     else:
                         # For the valid set, set coordinates to negative values to signal missing annotations.
                         eye_x = -img.width
@@ -266,7 +285,8 @@ class ReferDataset(data.Dataset):
                 # Replace arm coordinates with eye and fingertip coordinates
                 arm = [eye_x, eye_y, fingertip_x, fingertip_y]
             else:
-                raise NotImplementedError('replace arm with eye to fingertip not implemented for current dataset')
+                raise NotImplementedError(
+                    'replace arm with eye to fingertip not implemented for current dataset')
 
         return img, pt, ht, phrase, bbox, token_pos, arm, img_name
 
@@ -280,14 +300,15 @@ class ReferDataset(data.Dataset):
         return len(self.images)
 
     def __getitem__(self, idx):
-        img, pt, ht, phrase, bbox,token_pos, arm,img_name = self.pull_item(idx)
+        img, pt, ht, phrase, bbox, token_pos, arm, img_name = self.pull_item(
+            idx)
         # phrase = phrase.decode("utf-8").encode().lower()
         phrase = phrase.lower()
         ## seems a bug in torch transformation resize, so separate in advance
-        w,h = img.size
+        w, h = img.size
         target = {}
-        target['orig_size'] = torch.tensor([h,w])
-        target['size'] = torch.tensor([h,w]) 
+        target['orig_size'] = torch.tensor([h, w])
+        target['size'] = torch.tensor([h, w])
         target['boxes'] = torch.tensor(bbox, dtype=torch.float32).unsqueeze(0)
         target['caption'] = phrase
         target['img_name'] = img_name
@@ -299,16 +320,18 @@ class ReferDataset(data.Dataset):
 
         assert len(target["boxes"]) == len(target["tokens_positive"])
         tokenized = self.tokenizer(phrase, return_tensors="pt")
-        target["positive_map"] = create_positive_map(tokenized, target["tokens_positive"])
+        target["positive_map"] = create_positive_map(tokenized,
+                                                     target["tokens_positive"])
         target['ht_map'] = torch.tensor(ht).unsqueeze(0)
         if self.transform is not None:
-            img,target = self.transform(img,target)
+            img, target = self.transform(img, target)
         target['dataset_name'] = 'yourefit'
         return img, target
 
 
 class YouRefItEvaluator_old(object):
-    def __init__(self, ref_dataset, iou_types, k=(1, 2, 10), thresh_iou=0.25,draw=False):
+    def __init__(self, ref_dataset, iou_types, k=(1, 2, 10), thresh_iou=0.25,
+                 draw=False):
         assert isinstance(k, (list, tuple))
         ref_dataset = copy.deepcopy(ref_dataset)
         self.refexp_gt = ref_dataset
@@ -317,7 +340,7 @@ class YouRefItEvaluator_old(object):
         self.predictions = {}
         self.k = k
         self.thresh_iou = thresh_iou
-        self.draw=draw
+        self.draw = draw
 
     def accumulate(self):
         pass
@@ -339,22 +362,27 @@ class YouRefItEvaluator_old(object):
             }
 
             dataset2count = {"yourefit": 0.0}
-            
+
             for image_id in self.predictions.keys():
                 print('Evaluating{0}...'.format(image_id))
-                
-                bbox,img_name,img = self.refexp_gt.pull_item_box(image_id,self.draw)
-                
+
+                bbox, img_name, img = self.refexp_gt.pull_item_box(image_id,
+                                                                   self.draw)
+
                 prediction = self.predictions[image_id]
                 assert prediction is not None
                 sorted_scores_boxes = sorted(
-                    zip(prediction["scores"].tolist(), prediction["boxes"].tolist()), reverse=True
+                    zip(prediction["scores"].tolist(),
+                        prediction["boxes"].tolist()), reverse=True
                 )
                 sorted_scores, sorted_boxes = zip(*sorted_scores_boxes)
-                sorted_boxes = torch.cat([torch.as_tensor(x).view(1, 4) for x in sorted_boxes])
+                sorted_boxes = torch.cat(
+                    [torch.as_tensor(x).view(1, 4) for x in sorted_boxes])
                 converted_bbox = bbox
 
-                giou = generalized_box_iou(sorted_boxes, torch.as_tensor(converted_bbox).view(-1, 4))
+                giou = generalized_box_iou(sorted_boxes,
+                                           torch.as_tensor(converted_bbox).view(
+                                               -1, 4))
                 for k in self.k:
                     if max(giou[:k]) >= self.thresh_iou:
                         dataset2score["yourefit"][k] += 1.0
@@ -369,49 +397,56 @@ class YouRefItEvaluator_old(object):
             results = {}
             for key, value in dataset2score.items():
                 results[key] = sorted([v for k, v in value.items()])
-                print(f" Dataset: {key} - Precision @ 1, 5, 10: {results[key]} \n")
+                print(
+                    f" Dataset: {key} - Precision @ 1, 5, 10: {results[key]} \n")
 
             return results
         return None
 
 
-
-def draw_box(img,box,img_name,arm=None,gt_box=None,box1=None):
-    pt1 = (int(box[0]),int(box[1]))
-    pt2 = (int(box[2]),int(box[3]))
-    cv2.rectangle(img,pt1,pt2,(0,255,0),4) # green
+def draw_box(img, box, img_name, arm=None, gt_box=None, box1=None):
+    pt1 = (int(box[0]), int(box[1]))
+    pt2 = (int(box[2]), int(box[3]))
+    cv2.rectangle(img, pt1, pt2, (0, 255, 0), 4)  # green
     if arm is not None:
-        pt3 = (int(arm[0]),int(arm[1]))
-        pt4 = (int(arm[2]),int(arm[3]))
-        cv2.line(img,pt3,pt4,(0,0,255),5) #red
+        pt3 = (int(arm[0]), int(arm[1]))
+        pt4 = (int(arm[2]), int(arm[3]))
+        cv2.line(img, pt3, pt4, (0, 0, 255), 5)  # red
     if gt_box is not None:
-        pt5 = (int(gt_box[0]),int(gt_box[1]))
-        pt6 = (int(gt_box[2]),int(gt_box[3]))
-        cv2.rectangle(img,pt5,pt6,(255,0,0),4) #blue
-    if box1 is not None: # second best box
-        pt7 = (int(box1[0]),int(box1[1]))
-        pt8 = (int(box1[2]),int(box1[3]))
-        cv2.rectangle(img,pt7,pt8,(255,255,0),4) #light blue
-    cv2.imwrite(img_name,img)
+        pt5 = (int(gt_box[0]), int(gt_box[1]))
+        pt6 = (int(gt_box[2]), int(gt_box[3]))
+        cv2.rectangle(img, pt5, pt6, (255, 0, 0), 4)  # blue
+    if box1 is not None:  # second best box
+        pt7 = (int(box1[0]), int(box1[1]))
+        pt8 = (int(box1[2]), int(box1[3]))
+        cv2.rectangle(img, pt7, pt8, (255, 255, 0), 4)  # light blue
+    cv2.imwrite(img_name, img)
+
 
 import torch.nn.functional as F
-def aligned_score(arm,box):
-    arm_tensor = torch.Tensor(arm[2:])-torch.Tensor(arm[:2])
-    box_center = [(box[0]+box[2])/2,(box[1]+box[3])/2]
-    box_tensor = torch.Tensor(box_center)-torch.Tensor(arm[:2])
-    cos_sim = F.cosine_similarity(arm_tensor,box_tensor,dim=0)
+
+
+def aligned_score(arm, box):
+    arm_tensor = torch.Tensor(arm[2:]) - torch.Tensor(arm[:2])
+    box_center = [(box[0] + box[2]) / 2, (box[1] + box[3]) / 2]
+    box_tensor = torch.Tensor(box_center) - torch.Tensor(arm[:2])
+    cos_sim = F.cosine_similarity(arm_tensor, box_tensor, dim=0)
     return cos_sim
 
 
-def aligned_scores(arm,boxes):
-    arm_tensor = torch.Tensor(arm[2:])-torch.Tensor(arm[:2])
-    box_center = [(boxes[:,0]+boxes[:,2])/2,(boxes[:,1]+boxes[:,3])/2]
-    box_tensor = torch.vstack(box_center).transpose(0,1)-torch.Tensor(arm[:2])
-    cos_sim = F.cosine_similarity(arm_tensor,box_tensor,dim=1)
+def aligned_scores(arm, boxes):
+    arm_tensor = torch.Tensor(arm[2:]) - torch.Tensor(arm[:2])
+    box_center = [(boxes[:, 0] + boxes[:, 2]) / 2,
+                  (boxes[:, 1] + boxes[:, 3]) / 2]
+    box_tensor = torch.vstack(box_center).transpose(0, 1) - torch.Tensor(
+        arm[:2])
+    cos_sim = F.cosine_similarity(arm_tensor, box_tensor, dim=1)
     return cos_sim
+
 
 class YouRefItEvaluator(object):
-    def __init__(self, ref_dataset, iou_types, k=1,thresh_iou=(0.25,0.5,0.75),draw=True):
+    def __init__(self, ref_dataset, iou_types, k=1,
+                 thresh_iou=(0.25, 0.5, 0.75), draw=True):
         ref_dataset = copy.deepcopy(ref_dataset)
         self.refexp_gt = ref_dataset
         self.iou_types = iou_types
@@ -419,7 +454,7 @@ class YouRefItEvaluator(object):
         self.predictions = {}
         self.k = k
         self.thresh_iou = thresh_iou
-        self.draw=draw
+        self.draw = draw
 
     def accumulate(self):
         pass
@@ -456,32 +491,37 @@ class YouRefItEvaluator(object):
             box_score_list = []
             giou_list = []
 
-            
             for image_id in self.predictions.keys():
-                #print('Evaluating{0}...'.format(image_id))
-                
-                gt_bbox,img_name,img = self.refexp_gt.pull_item_box(image_id,self.draw) # img.shape: (H, W, 3)
+                # print('Evaluating{0}...'.format(image_id))
+
+                gt_bbox, img_name, img = self.refexp_gt.pull_item_box(image_id,
+                                                                      self.draw)  # img.shape: (H, W, 3)
                 H, W, _ = img.shape
 
                 prediction = self.predictions[image_id]
                 assert prediction is not None
                 sorted_scores_boxes = sorted(
-                    zip(prediction["scores"].tolist(), prediction["boxes"].tolist()), reverse=True
+                    zip(prediction["scores"].tolist(),
+                        prediction["boxes"].tolist()), reverse=True
                 )
                 sorted_scores, sorted_boxes = zip(*sorted_scores_boxes)
-                sorted_boxes = torch.cat([torch.as_tensor(x).view(1, 4) for x in sorted_boxes])
-                giou = generalized_box_iou(sorted_boxes, torch.as_tensor(gt_bbox).view(-1, 4))
+                sorted_boxes = torch.cat(
+                    [torch.as_tensor(x).view(1, 4) for x in sorted_boxes])
+                giou = generalized_box_iou(sorted_boxes,
+                                           torch.as_tensor(gt_bbox).view(-1, 4))
 
                 tmp_idx = prediction["arms_scores"].argmax()
                 arm_token_pair[img_name] = tmp_idx
-                torch.save(arm_token_pair,'arm_token_pair.pth')
+                torch.save(arm_token_pair, 'arm_token_pair.pth')
 
                 if 'arms' in prediction:
                     sorted_scores_arms = sorted(
-                        zip(prediction["arms_scores"].tolist(), prediction["arms"].tolist()), reverse=True
+                        zip(prediction["arms_scores"].tolist(),
+                            prediction["arms"].tolist()), reverse=True
                     )
                     sorted_arm_scores, sorted_arms = zip(*sorted_scores_arms)
-                    sorted_arms = torch.cat([torch.as_tensor(x).view(1, 4) for x in sorted_arms])
+                    sorted_arms = torch.cat(
+                        [torch.as_tensor(x).view(1, 4) for x in sorted_arms])
 
                     if EVAL_EARLY_STOP:
                         fingertip_xyxy = sorted_arms[0, 2:4]
@@ -489,16 +529,23 @@ class YouRefItEvaluator(object):
                         box_centers_xyxy = sorted_boxes[:, :2]
                         arm_tensor = fingertip_xyxy - eye_xyxy
                         box_tensor = box_centers_xyxy - eye_xyxy
-                        cos_sim = F.cosine_similarity(arm_tensor, box_tensor, dim=1)
+                        cos_sim = F.cosine_similarity(arm_tensor, box_tensor,
+                                                      dim=1)
 
-                        normalized_sorted_arms_xyxy = sorted_arms / torch.tensor([W, H, W, H], device=sorted_arms.device)
-                        normalized_sorted_boxes_xyxy = sorted_boxes / torch.tensor([W, H, W, H], device=sorted_boxes.device)
-                        print("'" + img_name + "'", ',', normalized_sorted_boxes_xyxy, ',', normalized_sorted_arms_xyxy[0], ',', giou)
+                        normalized_sorted_arms_xyxy = sorted_arms / torch.tensor(
+                            [W, H, W, H], device=sorted_arms.device)
+                        normalized_sorted_boxes_xyxy = sorted_boxes / torch.tensor(
+                            [W, H, W, H], device=sorted_boxes.device)
+                        print("'" + img_name + "'", ',',
+                              normalized_sorted_boxes_xyxy, ',',
+                              normalized_sorted_arms_xyxy[0], ',', giou)
                         breakpoint()
 
                     if SAVE_EVALUATION_PREDICTIONS:
-                        normalized_sorted_arms_xyxy = sorted_arms / torch.tensor([W, H, W, H], device=sorted_arms.device)
-                        normalized_sorted_boxes_xyxy = sorted_boxes / torch.tensor([W, H, W, H], device=sorted_boxes.device)
+                        normalized_sorted_arms_xyxy = sorted_arms / torch.tensor(
+                            [W, H, W, H], device=sorted_arms.device)
+                        normalized_sorted_boxes_xyxy = sorted_boxes / torch.tensor(
+                            [W, H, W, H], device=sorted_boxes.device)
                         top_arm = normalized_sorted_arms_xyxy[0]
                         for i in range(len(normalized_sorted_boxes_xyxy)):
                             # Find out one prediction for current image
@@ -525,13 +572,12 @@ class YouRefItEvaluator(object):
 
                             box_score_list.append(current_box_score)
                             giou_list.append(current_giou.item())
-                        
+
                 for thresh_iou in self.thresh_iou:
                     if max(giou[0]) >= thresh_iou:
                         dataset2score["yourefit"][thresh_iou] += 1.0
-                        
-                dataset2count['yourefit'] += 1.0
 
+                dataset2count['yourefit'] += 1.0
 
             # Create a dataframe to store all predictions
             if SAVE_EVALUATION_PREDICTIONS:
@@ -561,9 +607,8 @@ class YouRefItEvaluator(object):
                 # Save df to disk
                 if not os.path.exists(prediction_dir):
                     os.mkdir(prediction_dir)
-                df.to_csv(prediction_dir + '/' + prediction_file_name, index=False)
-
-
+                df.to_csv(prediction_dir + '/' + prediction_file_name,
+                          index=False)
 
             for key, value in dataset2score.items():
                 for thresh_iou in self.thresh_iou:
@@ -573,8 +618,10 @@ class YouRefItEvaluator(object):
                         pass
             results = {}
             for key, value in dataset2score.items():
-                results[key] = sorted([v for k, v in value.items()],reverse=True)
-                print(f" Dataset: {key} - Precision @ 0.25, 0.5, 0.75: {results[key]} \n")
+                results[key] = sorted([v for k, v in value.items()],
+                                      reverse=True)
+                print(
+                    f" Dataset: {key} - Precision @ 0.25, 0.5, 0.75: {results[key]} \n")
 
             return results
         return None

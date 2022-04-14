@@ -36,27 +36,33 @@ def string_to_bool(string):
     else:
         raise NotImplementedError()
 
+
 def get_args_parser():
     parser = argparse.ArgumentParser("Set transformer detector", add_help=False)
     parser.add_argument("--run_name", default="", type=str)
 
     # Dataset specific
     parser.add_argument("--dataset_config", default=None, required=True)
-    parser.add_argument("--do_qa", action="store_true", help="Whether to do question answering")
+    parser.add_argument("--do_qa", action="store_true",
+                        help="Whether to do question answering")
     parser.add_argument(
         "--predict_final",
         action="store_true",
         help="If true, will predict if a given box is in the actual referred set. Useful for CLEVR-Ref+ only currently.",
     )
-    parser.add_argument("--no_detection", action="store_true", help="Whether to train the detector")
+    parser.add_argument("--no_detection", action="store_true",
+                        help="Whether to train the detector")
     parser.add_argument(
-        "--split_qa_heads", action="store_true", help="Whether to use a separate head per question type in vqa"
+        "--split_qa_heads", action="store_true",
+        help="Whether to use a separate head per question type in vqa"
     )
     parser.add_argument(
-        "--combine_datasets", nargs="+", help="List of datasets to combine for training", default=["flickr"]
+        "--combine_datasets", nargs="+",
+        help="List of datasets to combine for training", default=["flickr"]
     )
     parser.add_argument(
-        "--combine_datasets_val", nargs="+", help="List of datasets to combine for eval", default=["flickr"]
+        "--combine_datasets_val", nargs="+",
+        help="List of datasets to combine for eval", default=["flickr"]
     )
 
     parser.add_argument("--coco_path", type=str, default="")
@@ -87,7 +93,8 @@ def get_args_parser():
         help="If greater than 0, will split the training set into chunks and validate/checkpoint after each chunk",
     )
     parser.add_argument("--optimizer", default="adam", type=str)
-    parser.add_argument("--clip_max_norm", default=0.1, type=float, help="gradient clipping max norm")
+    parser.add_argument("--clip_max_norm", default=0.1, type=float,
+                        help="gradient clipping max norm")
     parser.add_argument(
         "--eval_skip",
         default=1,
@@ -99,11 +106,13 @@ def get_args_parser():
         "--schedule",
         default="linear_with_warmup",
         type=str,
-        choices=("step", "multistep", "linear_with_warmup", "all_linear_with_warmup"),
+        choices=(
+        "step", "multistep", "linear_with_warmup", "all_linear_with_warmup"),
     )
     parser.add_argument("--ema", action="store_true")
     parser.add_argument("--ema_decay", type=float, default=0.9998)
-    parser.add_argument("--fraction_warmup_steps", default=0.01, type=float, help="Fraction of total number of steps")
+    parser.add_argument("--fraction_warmup_steps", default=0.01, type=float,
+                        help="Fraction of total number of steps")
 
     # Model parameters
     parser.add_argument(
@@ -114,7 +123,8 @@ def get_args_parser():
     )
 
     parser.add_argument(
-        "--freeze_text_encoder", action="store_true", help="Whether to freeze the weights of the text encoder"
+        "--freeze_text_encoder", action="store_true",
+        help="Whether to freeze the weights of the text encoder"
     )
 
     parser.add_argument(
@@ -168,14 +178,16 @@ def get_args_parser():
         type=int,
         help="Size of the embeddings (dimension of the transformer)",
     )
-    parser.add_argument("--dropout", default=0.1, type=float, help="Dropout applied in the transformer")
+    parser.add_argument("--dropout", default=0.1, type=float,
+                        help="Dropout applied in the transformer")
     parser.add_argument(
         "--nheads",
         default=8,
         type=int,
         help="Number of attention heads inside the transformer's attentions",
     )
-    parser.add_argument("--num_queries", default=20, type=int, help="Number of query slots")
+    parser.add_argument("--num_queries", default=20, type=int,
+                        help="Number of query slots")
     parser.add_argument("--pre_norm", action="store_true")
     parser.add_argument(
         "--no_pass_pos_and_query",
@@ -210,7 +222,8 @@ def get_args_parser():
         help="Type of matching to perform in the loss",
     )
 
-    parser.add_argument("--contrastive_loss", action="store_true", help="Whether to add contrastive loss")
+    parser.add_argument("--contrastive_loss", action="store_true",
+                        help="Whether to add contrastive loss")
     parser.add_argument(
         "--no_contrastive_align_loss",
         dest="contrastive_align_loss",
@@ -226,7 +239,8 @@ def get_args_parser():
     )
 
     parser.add_argument(
-        "--temperature_NCE", type=float, default=0.07, help="Temperature in the  temperature-scaled cross entropy loss"
+        "--temperature_NCE", type=float, default=0.07,
+        help="Temperature in the  temperature-scaled cross entropy loss"
     )
 
     # * Matcher
@@ -266,25 +280,30 @@ def get_args_parser():
 
     # Run specific
 
-    parser.add_argument("--test", action="store_true", help="Whether to run evaluation on val or test set")
-    parser.add_argument("--test_type", type=str, default="test", choices=("testA", "testB", "test"))
-    parser.add_argument("--output-dir", default="", help="path where to save, empty for no saving")
-    parser.add_argument("--device", default="cuda", help="device to use for training / testing")
+    parser.add_argument("--test", action="store_true",
+                        help="Whether to run evaluation on val or test set")
+    parser.add_argument("--test_type", type=str, default="test",
+                        choices=("testA", "testB", "test"))
+    parser.add_argument("--output-dir", default="",
+                        help="path where to save, empty for no saving")
+    parser.add_argument("--device", default="cuda",
+                        help="device to use for training / testing")
     parser.add_argument("--seed", default=42, type=int)
     parser.add_argument("--resume", default="", help="resume from checkpoint")
     parser.add_argument("--load", default="", help="resume from checkpoint")
-    parser.add_argument("--start-epoch", default=0, type=int, metavar="N", help="start epoch")
-    parser.add_argument("--eval", action="store_true", help="Only run evaluation")
+    parser.add_argument("--start-epoch", default=0, type=int, metavar="N",
+                        help="start epoch")
+    parser.add_argument("--eval", action="store_true",
+                        help="Only run evaluation")
     parser.add_argument("--num_workers", default=5, type=int)
 
     # Distributed training parameters
-    parser.add_argument("--world-size", default=1, type=int, help="number of distributed processes")
-    parser.add_argument("--dist-url", default="env://", help="url used to set up distributed training")
-
+    parser.add_argument("--world-size", default=1, type=int,
+                        help="number of distributed processes")
+    parser.add_argument("--dist-url", default="env://",
+                        help="url used to set up distributed training")
 
     parser.add_argument('--pose', type=string_to_bool, default=True)
-
-
 
     return parser
 
@@ -301,7 +320,7 @@ def main(args):
             cfg = json.load(f)
         d.update(cfg)
 
-    #print("git:\n  {}\n".format(utils.get_sha()))
+    # print("git:\n  {}\n".format(utils.get_sha()))
 
     # Segmentation related
     if args.mask_model != "none":
@@ -314,31 +333,37 @@ def main(args):
     print()
     print()
     if USE_MDETR_PREDICTIONS_AS_GROUNDTRUTHS:
-        print('USE_MDETR_PREDICTIONS_AS_GROUNDTRUTHS:', USE_MDETR_PREDICTIONS_AS_GROUNDTRUTHS)
-    print('REPLACE_ARM_WITH_EYE_TO_FINGERTIP:    ', REPLACE_ARM_WITH_EYE_TO_FINGERTIP)
+        print('USE_MDETR_PREDICTIONS_AS_GROUNDTRUTHS:',
+              USE_MDETR_PREDICTIONS_AS_GROUNDTRUTHS)
+    print('REPLACE_ARM_WITH_EYE_TO_FINGERTIP:    ',
+          REPLACE_ARM_WITH_EYE_TO_FINGERTIP)
     print('ARM_LOSS_COEF:                        ', ARM_LOSS_COEF)
     print('ARM_SCORE_LOSS_COEF:                  ', ARM_SCORE_LOSS_COEF)
     print('ARM_BOX_ALIGN_LOSS_COEF:              ', ARM_BOX_ALIGN_LOSS_COEF)
-    print('USE_GT__ARM_FOR_ARM_BOX_ALIGN_LOSS:   ', USE_GT__ARM_FOR_ARM_BOX_ALIGN_LOSS)
+    print('USE_GT__ARM_FOR_ARM_BOX_ALIGN_LOSS:   ',
+          USE_GT__ARM_FOR_ARM_BOX_ALIGN_LOSS)
     if ARM_BOX_ALIGN_OFFSET_BY_GT:
-        print('ARM_BOX_ALIGN_OFFSET_BY_GT:           ', ARM_BOX_ALIGN_OFFSET_BY_GT)
+        print('ARM_BOX_ALIGN_OFFSET_BY_GT:           ',
+              ARM_BOX_ALIGN_OFFSET_BY_GT)
     else:
-        print('ARM_BOX_ALIGH_FIXED_OFFSET:           ', ARM_BOX_ALIGH_FIXED_OFFSET)
+        print('ARM_BOX_ALIGH_FIXED_OFFSET:           ',
+              ARM_BOX_ALIGH_FIXED_OFFSET)
     if DEACTIVATE_EXTRA_TRANSFORMS:
-        print('DEACTIVATE_EXTRA_TRANSFORMS:          ', DEACTIVATE_EXTRA_TRANSFORMS)
+        print('DEACTIVATE_EXTRA_TRANSFORMS:          ',
+              DEACTIVATE_EXTRA_TRANSFORMS)
     print('eos_coef:                             ', args.eos_coef)
     if REPLACE_IMAGES_WITH_INPAINT:
-        print('REPLACE_IMAGES_WITH_INPAINT:          ', REPLACE_IMAGES_WITH_INPAINT)
+        print('REPLACE_IMAGES_WITH_INPAINT:          ',
+              REPLACE_IMAGES_WITH_INPAINT)
         print('INPAINT_DIR:                          ', INPAINT_DIR)
     print()
-
 
     # Initialize tensorboard
     tensorboard_log_dir = 'runs'
     if args.eval:
         start_index = args.load.find('/')
         end_index = args.load.rfind('/')
-        experiment_name = args.load[start_index+1:end_index]
+        experiment_name = args.load[start_index + 1:end_index]
     else:
         start_index = args.output_dir.rfind('/')
         experiment_name = args.output_dir[start_index + 1:]
@@ -355,18 +380,21 @@ def main(args):
     torch.use_deterministic_algorithms(False)
 
     # Build the model
-    model, criterion, contrastive_criterion, qa_criterion, weight_dict = build_model(args)
+    model, criterion, contrastive_criterion, qa_criterion, weight_dict = build_model(
+        args)
     model.to(device)
 
     assert (
-        criterion is not None or qa_criterion is not None
+            criterion is not None or qa_criterion is not None
     ), "Error: should train either detection or question answering (or both)"
 
     # Get a copy of the model for exponential moving averaged version of the model
     model_ema = deepcopy(model) if args.ema else None
     model_without_ddp = model
     if args.distributed:
-        model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu], find_unused_parameters=True)
+        model = torch.nn.parallel.DistributedDataParallel(model,
+                                                          device_ids=[args.gpu],
+                                                          find_unused_parameters=True)
         model_without_ddp = model.module
     n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print("number of params:", n_parameters)
@@ -377,22 +405,27 @@ def main(args):
             "params": [
                 p
                 for n, p in model_without_ddp.named_parameters()
-                if "backbone" not in n and "text_encoder" not in n and p.requires_grad
+                if
+                "backbone" not in n and "text_encoder" not in n and p.requires_grad
             ]
         },
         {
-            "params": [p for n, p in model_without_ddp.named_parameters() if "backbone" in n and p.requires_grad],
+            "params": [p for n, p in model_without_ddp.named_parameters() if
+                       "backbone" in n and p.requires_grad],
             "lr": args.lr_backbone,
         },
         {
-            "params": [p for n, p in model_without_ddp.named_parameters() if "text_encoder" in n and p.requires_grad],
+            "params": [p for n, p in model_without_ddp.named_parameters() if
+                       "text_encoder" in n and p.requires_grad],
             "lr": args.text_encoder_lr,
         },
     ]
     if args.optimizer == "sgd":
-        optimizer = torch.optim.SGD(param_dicts, lr=args.lr, momentum=0.9, weight_decay=args.weight_decay)
+        optimizer = torch.optim.SGD(param_dicts, lr=args.lr, momentum=0.9,
+                                    weight_decay=args.weight_decay)
     elif args.optimizer in ["adam", "adamw"]:
-        optimizer = torch.optim.AdamW(param_dicts, lr=args.lr, weight_decay=args.weight_decay)
+        optimizer = torch.optim.AdamW(param_dicts, lr=args.lr,
+                                      weight_decay=args.weight_decay)
     else:
         raise RuntimeError(f"Unsupported optimizer {args.optimizer}")
 
@@ -409,17 +442,19 @@ def main(args):
         else:
             input_transform = make_coco_transforms('train', False)
         dataset_train = ReferDataset(data_root='.',
-                        split_root='.',
-                        dataset='yourefit',
-                        split='train',
-                        transform=input_transform,
-                        augment=False,args=args)
+                                     split_root='.',
+                                     dataset='yourefit',
+                                     split='train',
+                                     transform=input_transform,
+                                     augment=False, args=args)
         if args.distributed:
             sampler_train = DistributedSampler(dataset_train)
         else:
             sampler_train = torch.utils.data.RandomSampler(dataset_train)
 
-        batch_sampler_train = torch.utils.data.BatchSampler(sampler_train, args.batch_size, drop_last=True)
+        batch_sampler_train = torch.utils.data.BatchSampler(sampler_train,
+                                                            args.batch_size,
+                                                            drop_last=True)
         data_loader_train = DataLoader(
             dataset_train,
             batch_sampler=batch_sampler_train,
@@ -431,18 +466,22 @@ def main(args):
     if len(args.combine_datasets_val) == 0:
         raise RuntimeError("Please provide at leas one validation dataset")
 
-    Val_all = namedtuple(typename="val_data", field_names=["dataset_name", "dataloader", "base_ds", "evaluator_list"])
+    Val_all = namedtuple(typename="val_data",
+                         field_names=["dataset_name", "dataloader", "base_ds",
+                                      "evaluator_list"])
 
     val_tuples = []
-    input_transform = make_coco_transforms('val', False) #val
+    input_transform = make_coco_transforms('val', False)  # val
     dset = ReferDataset(data_root='./',
-                    split_root='./',
-                    dataset='yourefit',
-                    split='val',
-                    transform=input_transform,
-                    augment=False,args=args)    
+                        split_root='./',
+                        dataset='yourefit',
+                        split='val',
+                        transform=input_transform,
+                        augment=False, args=args)
     sampler = (
-        DistributedSampler(dset, shuffle=False) if args.distributed else torch.utils.data.SequentialSampler(dset)
+        DistributedSampler(dset,
+                           shuffle=False) if args.distributed else torch.utils.data.SequentialSampler(
+            dset)
     )
     dataloader = DataLoader(
         dset,
@@ -453,16 +492,22 @@ def main(args):
         num_workers=args.num_workers,
     )
     base_ds = None
-    val_tuples.append(Val_all(dataset_name='yourefit', dataloader=dataloader, base_ds=base_ds, evaluator_list=None))
+    val_tuples.append(
+        Val_all(dataset_name='yourefit', dataloader=dataloader, base_ds=base_ds,
+                evaluator_list=None))
     if args.frozen_weights is not None:
         if args.resume.startswith("https"):
-            checkpoint = torch.hub.load_state_dict_from_url(args.resume, map_location="cpu", check_hash=True)
+            checkpoint = torch.hub.load_state_dict_from_url(args.resume,
+                                                            map_location="cpu",
+                                                            check_hash=True)
         else:
             checkpoint = torch.load(args.resume, map_location="cpu")
         if "model_ema" in checkpoint and checkpoint["model_ema"] is not None:
-            model_without_ddp.detr.load_state_dict(checkpoint["model_ema"], strict=False)
+            model_without_ddp.detr.load_state_dict(checkpoint["model_ema"],
+                                                   strict=False)
         else:
-            model_without_ddp.detr.load_state_dict(checkpoint["model"], strict=False)
+            model_without_ddp.detr.load_state_dict(checkpoint["model"],
+                                                   strict=False)
 
         if args.ema:
             model_ema = deepcopy(model_without_ddp)
@@ -473,7 +518,8 @@ def main(args):
         print("loading from", args.load)
         checkpoint = torch.load(args.load, map_location="cpu")
         if "model_ema" in checkpoint:
-            model_without_ddp.load_state_dict(checkpoint["model_ema"], strict=False)
+            model_without_ddp.load_state_dict(checkpoint["model_ema"],
+                                              strict=False)
         else:
             model_without_ddp.load_state_dict(checkpoint["model"], strict=False)
 
@@ -483,7 +529,9 @@ def main(args):
     # Used for resuming training from the checkpoint of a model. Used when training times-out or is pre-empted.
     if args.resume:
         if args.resume.startswith("https"):
-            checkpoint = torch.hub.load_state_dict_from_url(args.resume, map_location="cpu", check_hash=True)
+            checkpoint = torch.hub.load_state_dict_from_url(args.resume,
+                                                            map_location="cpu",
+                                                            check_hash=True)
         else:
             checkpoint = torch.load(args.resume, map_location="cpu")
         model_without_ddp.load_state_dict(checkpoint["model"])
@@ -492,12 +540,13 @@ def main(args):
             args.start_epoch = checkpoint["epoch"] + 1
         if args.ema:
             if "model_ema" not in checkpoint:
-                print("WARNING: ema model not found in checkpoint, resetting to current model")
+                print(
+                    "WARNING: ema model not found in checkpoint, resetting to current model")
                 model_ema = deepcopy(model_without_ddp)
             else:
                 model_ema.load_state_dict(checkpoint["model_ema"])
 
-    def build_evaluator_list(base_ds, dataset_name,dset=None):
+    def build_evaluator_list(base_ds, dataset_name, dset=None):
         """Helper function to build the list of evaluators for a given dataset"""
         evaluator_list = []
         if args.no_detection:
@@ -506,10 +555,10 @@ def main(args):
         if args.masks:
             iou_types.append("segm")
 
-        #evaluator_list.append(CocoEvaluator(base_ds, tuple(iou_types), useCats=False))
+        # evaluator_list.append(CocoEvaluator(base_ds, tuple(iou_types), useCats=False))
         if "yourefit" in dataset_name:
             evaluator_list.append(YouRefItEvaluator(dset, ("bbox")))
-        
+
         return evaluator_list
 
     # Runs only evaluation, by default on the validation set unless --test is passed.
@@ -517,7 +566,8 @@ def main(args):
         test_stats = {}
         test_model = model_ema if model_ema is not None else model
         for i, item in enumerate(val_tuples):
-            evaluator_list = build_evaluator_list(item.base_ds, item.dataset_name,dset)
+            evaluator_list = build_evaluator_list(item.base_ds,
+                                                  item.dataset_name, dset)
             postprocessors = build_postprocessors(args, item.dataset_name)
             item = item._replace(evaluator_list=evaluator_list)
             print(f"Evaluating {item.dataset_name}")
@@ -533,10 +583,12 @@ def main(args):
                 device=device,
                 args=args,
             )
-            test_stats.update({item.dataset_name + "_" + k: v for k, v in curr_test_stats.items()})
+            test_stats.update({item.dataset_name + "_" + k: v for k, v in
+                               curr_test_stats.items()})
 
         # Write Precisions to tensorboard
-        if len(args.combine_datasets_val) == 1 and args.combine_datasets_val[0] == 'yourefit' and dist.get_rank() == 0:
+        if len(args.combine_datasets_val) == 1 and args.combine_datasets_val[
+            0] == 'yourefit' and dist.get_rank() == 0:
 
             # Find out epoch number
             start_index = args.load.rfind('/') + len('/checkpoint')
@@ -564,12 +616,16 @@ def main(args):
             # unscaled_contrastive_align_loss =  test_stats['yourefit_loss_contrastive_align_unscaled']
 
             if dist.get_world_size() > 1:
-                pose_decoder_last_layer_index = len(model.module.pose_decoder) - 1
+                pose_decoder_last_layer_index = len(
+                    model.module.pose_decoder) - 1
             else:
                 pose_decoder_last_layer_index = len(model.pose_decoder) - 1
             # unscaled_pose_loss = test_stats['yourefit_pose_loss_' + str(pose_decoder_last_layer_index) + '_unscaled']
-            unscaled_arm_loss = test_stats['yourefit_arm_loss_' + str(pose_decoder_last_layer_index) + '_unscaled']
-            unscaled_arm_score_loss = test_stats['yourefit_arm_score_loss_' + str(pose_decoder_last_layer_index) + '_unscaled']
+            unscaled_arm_loss = test_stats['yourefit_arm_loss_' + str(
+                pose_decoder_last_layer_index) + '_unscaled']
+            unscaled_arm_score_loss = test_stats[
+                'yourefit_arm_score_loss_' + str(
+                    pose_decoder_last_layer_index) + '_unscaled']
 
             # Write losses to tensorboard
             # writer.add_scalar('Loss/valid_total', total_loss, epoch_number)
@@ -581,7 +637,6 @@ def main(args):
             #
             # writer.add_scalar('Loss_valid_unscaled/arm', unscaled_arm_loss, epoch_number)
             # writer.add_scalar('Loss_valid_unscaled/arm_score', unscaled_arm_score_loss, epoch_number)
-
 
         log_stats = {
             **{f"test_{k}": v for k, v in test_stats.items()},
@@ -622,14 +677,20 @@ def main(args):
             # Find out lr
             lr = train_stats['lr']
             writer.add_scalar('Misc_train/lr', lr, epoch_number)
-            writer.add_scalar('Misc_train/ARM_LOSS_COEF', ARM_LOSS_COEF, epoch_number)
-            writer.add_scalar('Misc_train/ARM_SCORE_LOSS_COEF', ARM_SCORE_LOSS_COEF, epoch_number)
-            writer.add_scalar('Misc_train/ARM_BOX_ALIGN_LOSS_COEF', ARM_BOX_ALIGN_LOSS_COEF, epoch_number)
+            writer.add_scalar('Misc_train/ARM_LOSS_COEF', ARM_LOSS_COEF,
+                              epoch_number)
+            writer.add_scalar('Misc_train/ARM_SCORE_LOSS_COEF',
+                              ARM_SCORE_LOSS_COEF, epoch_number)
+            writer.add_scalar('Misc_train/ARM_BOX_ALIGN_LOSS_COEF',
+                              ARM_BOX_ALIGN_LOSS_COEF, epoch_number)
             if ARM_BOX_ALIGN_OFFSET_BY_GT:
-                writer.add_scalar('Misc_train/ARM_BOX_ALIGH_FIXED_OFFSET', ARM_BOX_ALIGH_FIXED_OFFSET, epoch_number)
+                writer.add_scalar('Misc_train/ARM_BOX_ALIGH_FIXED_OFFSET',
+                                  ARM_BOX_ALIGH_FIXED_OFFSET, epoch_number)
             else:
-                writer.add_scalar('Misc_train/ARM_BOX_ALIGH_FIXED_OFFSET', -1, epoch_number)
-            writer.add_scalar('Misc_train/eos_coef', args.eos_coef, epoch_number)
+                writer.add_scalar('Misc_train/ARM_BOX_ALIGH_FIXED_OFFSET', -1,
+                                  epoch_number)
+            writer.add_scalar('Misc_train/eos_coef', args.eos_coef,
+                              epoch_number)
 
             # Find out losses
             total_loss = train_stats['loss']
@@ -637,35 +698,48 @@ def main(args):
             unscaled_ce_loss = train_stats['loss_ce_unscaled']
             unscaled_giou_loss = train_stats['loss_giou_unscaled']
             unscaled_box_loss = train_stats['loss_bbox_unscaled']
-            unscaled_contrastive_align_loss =  train_stats['loss_contrastive_align_unscaled']
+            unscaled_contrastive_align_loss = train_stats[
+                'loss_contrastive_align_unscaled']
 
             if dist.get_world_size() > 1:
-                pose_decoder_last_layer_index = len(model.module.pose_decoder) - 1
+                pose_decoder_last_layer_index = len(
+                    model.module.pose_decoder) - 1
             else:
                 pose_decoder_last_layer_index = len(model.pose_decoder) - 1
             # unscaled_pose_loss = train_stats['pose_loss_' + str(pose_decoder_last_layer_index) + '_unscaled']
-            unscaled_arm_loss = train_stats['arm_loss_' + str(pose_decoder_last_layer_index) + '_unscaled']
-            unscaled_arm_score_loss = train_stats['arm_score_loss_' + str(pose_decoder_last_layer_index) + '_unscaled']
-            unscaled_arm_box_align_loss = train_stats['arm_box_aligned_loss_unscaled']
+            unscaled_arm_loss = train_stats[
+                'arm_loss_' + str(pose_decoder_last_layer_index) + '_unscaled']
+            unscaled_arm_score_loss = train_stats['arm_score_loss_' + str(
+                pose_decoder_last_layer_index) + '_unscaled']
+            unscaled_arm_box_align_loss = train_stats[
+                'arm_box_aligned_loss_unscaled']
 
             # Write losses to tensorboard
             writer.add_scalar('Loss/train_total', total_loss, epoch_number)
 
-            writer.add_scalar('Loss_train_unscaled/ce', unscaled_ce_loss, epoch_number)
-            writer.add_scalar('Loss_train_unscaled/giou', unscaled_giou_loss, epoch_number)
-            writer.add_scalar('Loss_train_unscaled/box', unscaled_box_loss, epoch_number)
-            writer.add_scalar('Loss_train_unscaled/contrastive_align', unscaled_contrastive_align_loss, epoch_number)
+            writer.add_scalar('Loss_train_unscaled/ce', unscaled_ce_loss,
+                              epoch_number)
+            writer.add_scalar('Loss_train_unscaled/giou', unscaled_giou_loss,
+                              epoch_number)
+            writer.add_scalar('Loss_train_unscaled/box', unscaled_box_loss,
+                              epoch_number)
+            writer.add_scalar('Loss_train_unscaled/contrastive_align',
+                              unscaled_contrastive_align_loss, epoch_number)
 
-            writer.add_scalar('Loss_train_unscaled/arm', unscaled_arm_loss, epoch_number)
-            writer.add_scalar('Loss_train_unscaled/arm_score', unscaled_arm_score_loss, epoch_number)
-            writer.add_scalar('Loss_train_unscaled/arm_box_align', unscaled_arm_box_align_loss, epoch_number)
-
+            writer.add_scalar('Loss_train_unscaled/arm', unscaled_arm_loss,
+                              epoch_number)
+            writer.add_scalar('Loss_train_unscaled/arm_score',
+                              unscaled_arm_score_loss, epoch_number)
+            writer.add_scalar('Loss_train_unscaled/arm_box_align',
+                              unscaled_arm_box_align_loss, epoch_number)
 
         if args.output_dir:
             checkpoint_paths = [output_dir / "checkpoint.pth"]
             # extra checkpoint before LR drop and every 2 epochs
-            if (epoch + 1) % args.lr_drop == 0 or (epoch + 1) % CHECKPOINT_FREQUENCY == 0:
-                checkpoint_paths.append(output_dir / f"checkpoint{epoch:04}.pth")
+            if (epoch + 1) % args.lr_drop == 0 or (
+                    epoch + 1) % CHECKPOINT_FREQUENCY == 0:
+                checkpoint_paths.append(
+                    output_dir / f"checkpoint{epoch:04}.pth")
             for checkpoint_path in checkpoint_paths:
                 dist.save_on_master(
                     {
@@ -682,7 +756,8 @@ def main(args):
             test_stats = {}
             test_model = model_ema if model_ema is not None else model
             for i, item in enumerate(val_tuples):
-                evaluator_list = build_evaluator_list(item.base_ds, item.dataset_name, dset)
+                evaluator_list = build_evaluator_list(item.base_ds,
+                                                      item.dataset_name, dset)
                 item = item._replace(evaluator_list=evaluator_list)
                 postprocessors = build_postprocessors(args, item.dataset_name)
                 print(f"Evaluating {item.dataset_name}")
@@ -698,7 +773,8 @@ def main(args):
                     device=device,
                     args=args,
                 )
-                test_stats.update({item.dataset_name + "_" + k: v for k, v in curr_test_stats.items()})
+                test_stats.update({item.dataset_name + "_" + k: v for k, v in
+                                   curr_test_stats.items()})
         else:
             test_stats = {}
 
@@ -726,28 +802,41 @@ def main(args):
             unscaled_ce_loss = test_stats['yourefit_loss_ce_unscaled']
             unscaled_giou_loss = test_stats['yourefit_loss_giou_unscaled']
             unscaled_box_loss = test_stats['yourefit_loss_bbox_unscaled']
-            unscaled_contrastive_align_loss =  test_stats['yourefit_loss_contrastive_align_unscaled']
+            unscaled_contrastive_align_loss = test_stats[
+                'yourefit_loss_contrastive_align_unscaled']
 
             if dist.get_world_size() > 1:
-                pose_decoder_last_layer_index = len(model.module.pose_decoder) - 1
+                pose_decoder_last_layer_index = len(
+                    model.module.pose_decoder) - 1
             else:
                 pose_decoder_last_layer_index = len(model.pose_decoder) - 1
             # unscaled_pose_loss = test_stats['yourefit_pose_loss_' + str(pose_decoder_last_layer_index) + '_unscaled']
-            unscaled_arm_loss = test_stats['yourefit_arm_loss_' + str(pose_decoder_last_layer_index) + '_unscaled']
-            unscaled_arm_score_loss = test_stats['yourefit_arm_score_loss_' + str(pose_decoder_last_layer_index) + '_unscaled']
-            unscaled_arm_box_align_loss = train_stats['arm_box_aligned_loss_unscaled']
+            unscaled_arm_loss = test_stats['yourefit_arm_loss_' + str(
+                pose_decoder_last_layer_index) + '_unscaled']
+            unscaled_arm_score_loss = test_stats[
+                'yourefit_arm_score_loss_' + str(
+                    pose_decoder_last_layer_index) + '_unscaled']
+            unscaled_arm_box_align_loss = train_stats[
+                'arm_box_aligned_loss_unscaled']
 
             # Write losses to tensorboard
             writer.add_scalar('Loss/valid_total', total_loss, epoch_number)
 
-            writer.add_scalar('Loss_valid_unscaled/ce', unscaled_ce_loss, epoch_number)
-            writer.add_scalar('Loss_valid_unscaled/giou', unscaled_giou_loss, epoch_number)
-            writer.add_scalar('Loss_valid_unscaled/box', unscaled_box_loss, epoch_number)
-            writer.add_scalar('Loss_valid_unscaled/contrastive_align', unscaled_contrastive_align_loss, epoch_number)
+            writer.add_scalar('Loss_valid_unscaled/ce', unscaled_ce_loss,
+                              epoch_number)
+            writer.add_scalar('Loss_valid_unscaled/giou', unscaled_giou_loss,
+                              epoch_number)
+            writer.add_scalar('Loss_valid_unscaled/box', unscaled_box_loss,
+                              epoch_number)
+            writer.add_scalar('Loss_valid_unscaled/contrastive_align',
+                              unscaled_contrastive_align_loss, epoch_number)
 
-            writer.add_scalar('Loss_valid_unscaled/arm', unscaled_arm_loss, epoch_number)
-            writer.add_scalar('Loss_valid_unscaled/arm_score', unscaled_arm_score_loss, epoch_number)
-            writer.add_scalar('Loss_valid_unscaled/arm_box_align', unscaled_arm_box_align_loss, epoch_number)
+            writer.add_scalar('Loss_valid_unscaled/arm', unscaled_arm_loss,
+                              epoch_number)
+            writer.add_scalar('Loss_valid_unscaled/arm_score',
+                              unscaled_arm_score_loss, epoch_number)
+            writer.add_scalar('Loss_valid_unscaled/arm_box_align',
+                              unscaled_arm_box_align_loss, epoch_number)
 
         log_stats = {
             **{f"train_{k}": v for k, v in train_stats.items()},
@@ -764,7 +853,8 @@ def main(args):
             if args.do_qa:
                 metric = test_stats["gqa_accuracy_answer_total_unscaled"]
             else:
-                metric = np.mean([v[1] for k, v in test_stats.items() if "coco_eval_bbox" in k])
+                metric = np.mean([v[1] for k, v in test_stats.items() if
+                                  "coco_eval_bbox" in k])
 
             if args.output_dir and metric > best_metric:
                 best_metric = metric
@@ -787,7 +877,8 @@ def main(args):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser("DETR training and evaluation script", parents=[get_args_parser()])
+    parser = argparse.ArgumentParser("DETR training and evaluation script",
+                                     parents=[get_args_parser()])
     args = parser.parse_args()
     if args.output_dir:
         Path(args.output_dir).mkdir(parents=True, exist_ok=True)
