@@ -217,7 +217,7 @@ class MDETR(nn.Module):
                     })
 
             memory_cache = self.transformer(
-                self.input_proj(src),  # + self.input_proj_paf(paf_features),
+                self.input_proj(src),
                 mask,
                 query_embed,
                 pos[-1],
@@ -226,15 +226,15 @@ class MDETR(nn.Module):
                 text_memory=None,
                 img_memory=None,
                 text_attention_mask=None,
-            )  # image+text fused feature
+            )
 
             if self.contrastive_loss:
-                memory_cache[
-                    "text_pooled_op"] = self.contrastive_projection_text(
-                    memory_cache["text_pooled_op"])
-                memory_cache[
-                    "img_pooled_op"] = self.contrastive_projection_image(
-                    memory_cache["img_pooled_op"])
+                memory_cache["text_pooled_op"] = \
+                    self.contrastive_projection_text(
+                        memory_cache["text_pooled_op"])
+                memory_cache["img_pooled_op"] = \
+                    self.contrastive_projection_image(
+                        memory_cache["img_pooled_op"])
 
             return memory_cache, pose_out
 
@@ -277,11 +277,12 @@ class MDETR(nn.Module):
             proj_queries, proj_tokens = None, None
             if self.contrastive_align_loss:
                 proj_queries = F.normalize(
-                    self.contrastive_align_projection_image(hs), p=2, dim=-1)
+                    self.contrastive_align_projection_image(hs),
+                    p=2, dim=-1)
                 proj_tokens = F.normalize(
                     self.contrastive_align_projection_text(
-                        memory_cache["text_memory"]).transpose(0, 1), p=2,
-                    dim=-1
+                        memory_cache["text_memory"]).transpose(0, 1),
+                    p=2, dim=-1
                 )
                 out.update(
                     {

@@ -173,15 +173,13 @@ class Transformer(nn.Module):
             else:
                 text_memory = None
 
-            # assert img_memory.shape[1] == text_memory.shape[1] == tgt.shape[1]
+            assert img_memory.shape[1] == text_memory.shape[1] == tgt.shape[1]
             memory_cache = {
                 "text_memory_resized": text_memory_resized,
                 "text_memory": text_memory,
                 "img_memory": img_memory,
                 "text_pooled_op": encoded_text.pooler_output if self.CLS is not None else None,
-                "img_pooled_op": img_memory[
-                    0] if self.CLS is not None else None,
-                # Return the CLS token
+                "img_pooled_op": img_memory[0] if self.CLS is not None else None,
                 "mask": mask,
                 "text_attention_mask": text_attention_mask,
                 "pos_embed": pos_embed,
