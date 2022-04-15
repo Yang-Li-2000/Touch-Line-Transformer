@@ -650,13 +650,11 @@ class SetCriterion(nn.Module):
         tokenized = outputs["tokenized"]
 
         normalized_text_emb = outputs["proj_tokens"]  # BS x (num_tokens) x hdim
-        normalized_img_emb = outputs[
-            "proj_queries"]  # BS x (num_queries) x hdim
+        normalized_img_emb = outputs["proj_queries"]  # BS x (num_queries) x hdim
 
         logits = (
                 torch.matmul(normalized_img_emb,
-                             normalized_text_emb.transpose(-1,
-                                                           -2)) / self.temperature
+                             normalized_text_emb.transpose(-1, -2)) / self.temperature
         )  # BS x (num_queries) x (num_tokens)
 
         # construct a map such that positive_map[k, i,j] = True iff query i is associated to token j in batch item k
@@ -703,8 +701,8 @@ class SetCriterion(nn.Module):
 
         nb_pos = positive_map.sum(2) + 1e-6
 
-        box_to_token_loss = ((pos_term / nb_pos + neg_term)).masked_fill(
-            ~boxes_with_pos, 0).sum()
+        box_to_token_loss = \
+            ((pos_term / nb_pos + neg_term)).masked_fill(~boxes_with_pos, 0).sum()
 
         tokens_with_pos = positive_map.any(1)
         pos_term = positive_logits.sum(1)
@@ -712,11 +710,13 @@ class SetCriterion(nn.Module):
 
         nb_pos = positive_map.sum(1) + 1e-6
 
-        tokens_to_boxes_loss = ((pos_term / nb_pos + neg_term)).masked_fill(
-            ~tokens_with_pos, 0).sum()
+        tokens_to_boxes_loss = \
+            ((pos_term / nb_pos + neg_term)).masked_fill(~tokens_with_pos, 0).sum()
         tot_loss = (box_to_token_loss + tokens_to_boxes_loss) / 2
 
-        return {"loss_contrastive_align": tot_loss / num_boxes}
+        normalized_loss = tot_loss / num_boxes
+
+        return {"loss_contrastive_align": normalized_loss}
 
     @torch.no_grad()
     def loss_cardinality(self, outputs, targets, positive_map, indices,
