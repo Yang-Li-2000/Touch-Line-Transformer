@@ -105,7 +105,8 @@ def train_one_epoch(
         if args.masks:
             outputs = model(samples, captions)
         else:
-            memory_cache, pose_out = model(samples, captions,
+            memory_cache, pose_out = model(samples,
+                                           captions=captions,
                                            encode_and_save=True,
                                            paf_samples=pafs)
             if pose_out is not None:
@@ -125,9 +126,9 @@ def train_one_epoch(
             # the encodings of memory_cache['tokenized'] and manually set it
             # in the function below.
             outputs = model(samples, captions, encode_and_save=False,
-                            memory_cache=memory_cache, arm_query=target_arm,
-                            encodings_of_tokenized=memory_cache[
-                                'tokenized']._encodings)
+                            memory_cache=memory_cache,
+                            arm_query=target_arm,
+                            encodings_of_tokenized=memory_cache['tokenized']._encodings)
 
             # Add pred_arm into outputs
             if pose_out is not None:
