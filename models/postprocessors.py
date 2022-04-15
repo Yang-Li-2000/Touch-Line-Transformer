@@ -12,6 +12,7 @@ from util import box_ops
 global img_token_pairs
 img_token_pairs = {}
 
+
 class PostProcessFlickr(nn.Module):
     """This module converts the model's output for Flickr30k entities evaluation.
 
@@ -20,7 +21,8 @@ class PostProcessFlickr(nn.Module):
     """
 
     @torch.no_grad()
-    def forward(self, outputs, target_sizes, positive_map, items_per_batch_element):
+    def forward(self, outputs, target_sizes, positive_map,
+                items_per_batch_element):
         """Perform the computation.
         Args:
             outputs: raw outputs of the model
@@ -68,11 +70,13 @@ class PostProcessFlickr(nn.Module):
 
         for i in range(len(pos)):
             # scores are computed by taking the max over the scores assigned to the positive tokens
-            scores, _ = torch.max(pos[i].unsqueeze(0) * prob[curr_batch_index, :, :], dim=-1)
+            scores, _ = torch.max(
+                pos[i].unsqueeze(0) * prob[curr_batch_index, :, :], dim=-1)
             _, indices = torch.sort(scores, descending=True)
 
             assert items_per_batch_element[curr_batch_index] > 0
-            predicted_boxes[curr_batch_index].append(boxes[curr_batch_index][indices].to("cpu").tolist())
+            predicted_boxes[curr_batch_index].append(
+                boxes[curr_batch_index][indices].to("cpu").tolist())
             if i == len(pos) - 1:
                 break
 
@@ -112,7 +116,8 @@ class PostProcessPhrasecut(nn.Module):
             boxes[..., 2:] -= boxes[..., :2]
             res = {"boxes": boxes.tolist()}
             if "masks" in elem:
-                res["masks"] = elem["masks"][keep].any(0).squeeze(0).cpu().numpy()
+                res["masks"] = elem["masks"][keep].any(0).squeeze(
+                    0).cpu().numpy()
             final_results.append(res)
 
         return final_results
@@ -122,7 +127,7 @@ class PostProcess(nn.Module):
     """ This module converts the model's output into the format expected by the coco api"""
 
     @torch.no_grad()
-    def forward(self, outputs, target_sizes,img_names = None):
+    def forward(self, outputs, target_sizes, img_names=None):
         """Perform the computation
         Parameters:
             outputs: raw outputs of the model
@@ -131,7 +136,7 @@ class PostProcess(nn.Module):
                           For visualization, this should be the image size after data augment, but before padding
         """
         out_logits, out_bbox = outputs["pred_logits"], outputs["pred_boxes"]
-        #scores, out_bbox = outputs["pred_scores"], outputs["pred_boxes"]
+        # scores, out_bbox = outputs["pred_scores"], outputs["pred_boxes"]
 
         prob = F.softmax(out_logits, -1)
         scores, labels = prob[..., :-1].max(-1)
@@ -139,15 +144,14 @@ class PostProcess(nn.Module):
         # labels = torch.ones_like(labels)
 
         scores = 1 - prob[:, :, -1]
-        
 
-        max_score,score_idx = scores.max(dim=1)
+        max_score, score_idx = scores.max(dim=1)
 
         # global img_token_pairs
         # for i in range(len(img_names)):
         #     img_token_pairs[img_names[i]] = score_idx[i].detach().cpu().numpy()
         # torch.save(img_token_pairs, "img_token_pairs.pth")
-        
+
         # convert to [x0, y0, x1, y1] format
         boxes = box_ops.box_cxcywh_to_xyxy(out_bbox)
         # and from relative [0, 1] to absolute [0, height] coordinates
@@ -155,23 +159,22 @@ class PostProcess(nn.Module):
         scale_fct = torch.stack([img_w, img_h, img_w, img_h], dim=1)
         boxes = boxes * scale_fct[:, None, :]
 
-        #assert len(scores) == len(labels) == len(boxes)
-        results = [{"scores": s, "boxes": b} for s,  b in zip(scores, boxes)]
-
+        # assert len(scores) == len(labels) == len(boxes)
+        results = [{"scores": s, "boxes": b} for s, b in zip(scores, boxes)]
 
         if 'pred_arm' in outputs:
             for i in range(len(results)):
                 pred_arm = outputs['pred_arm'][i]
-                pred_arm = pred_arm * scale_fct[:,None,:]
+                pred_arm = pred_arm * scale_fct[:, None, :]
                 results[i]['pred_arm'] = pred_arm[i]
 
         if '2_arms' in outputs:
-            arms,arm_scores = outputs["2_arms"], outputs["2_arm_score"]
+            arms, arm_scores = outputs["2_arms"], outputs["2_arm_score"]
             arms = arms * scale_fct[:, None, :]
-            #arm_prob = F.softmax(arm_scores, -1)
+            # arm_prob = F.softmax(arm_scores, -1)
             for i in range(len(results)):
                 results[i]['arms'] = arms[i]
-                results[i]['arms_scores'] = arm_scores.softmax(dim=2)[i,:,1]
+                results[i]['arms_scores'] = arm_scores.softmax(dim=2)[i, :, 1]
         return results
 
 
@@ -203,7 +206,8 @@ class PostProcessSegm(nn.Module):
         assert len(orig_target_sizes) == len(max_target_sizes)
         max_h, max_w = max_target_sizes.max(0)[0].tolist()
         outputs_masks = outputs["pred_masks"].squeeze(2)
-        outputs_masks = F.interpolate(outputs_masks, size=(max_h, max_w), mode="bilinear", align_corners=False)
+        outputs_masks = F.interpolate(outputs_masks, size=(max_h, max_w),
+                                      mode="bilinear", align_corners=False)
 
         # Check if all sizes are the same, in which case we can do the interpolation more efficiently
         min_h, min_w = max_target_sizes.min(0)[0].tolist()
@@ -211,18 +215,22 @@ class PostProcessSegm(nn.Module):
         max_orig_h, max_orig_w = orig_target_sizes.max(0)[0].tolist()
         if min_h == max_h and min_w == max_w and min_orig_h == max_orig_h and min_orig_w == max_orig_w:
             outputs_masks = (
-                F.interpolate(outputs_masks, size=(min_orig_h, min_orig_w), mode="bilinear").sigmoid() > self.threshold
+                    F.interpolate(outputs_masks, size=(min_orig_h, min_orig_w),
+                                  mode="bilinear").sigmoid() > self.threshold
             ).cpu()
             for i, cur_mask in enumerate(outputs_masks):
                 results[i]["masks"] = cur_mask.unsqueeze(1)
             return results
 
-        for i, (cur_mask, t, tt) in enumerate(zip(outputs_masks, max_target_sizes, orig_target_sizes)):
+        for i, (cur_mask, t, tt) in enumerate(
+                zip(outputs_masks, max_target_sizes, orig_target_sizes)):
             img_h, img_w = t[0], t[1]
             results[i]["masks"] = cur_mask[:, :img_h, :img_w].unsqueeze(1)
             results[i]["masks"] = (
-                F.interpolate(results[i]["masks"].float(), size=tuple(tt.tolist()), mode="bilinear").sigmoid()
-                > self.threshold
+                    F.interpolate(results[i]["masks"].float(),
+                                  size=tuple(tt.tolist()),
+                                  mode="bilinear").sigmoid()
+                    > self.threshold
             ).cpu()
 
         return results
