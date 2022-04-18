@@ -127,9 +127,8 @@ class PostProcess(nn.Module):
     """ This module converts the model's output into the format expected by the coco api"""
 
 
-    # TODO: create a function to compute the alignment between box and text
+    # Compute the alignment between box and text
     def loss_contrastive_align(self, outputs, targets, temperature=0.07):
-        # TODO: fix temperature
         # Construct dummy indices
         bs = outputs["proj_queries"].shape[0]
         indices = []
