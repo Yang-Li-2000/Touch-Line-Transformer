@@ -543,10 +543,13 @@ class YouRefItEvaluator(object):
                             [W, H, W, H], device=sorted_arms.device)
                         normalized_sorted_boxes_xyxy = sorted_boxes / torch.tensor(
                             [W, H, W, H], device=sorted_boxes.device)
-                        print("'" + img_name + "'", ',',
-                              normalized_sorted_boxes_xyxy, ',',
-                              normalized_sorted_arms_xyxy[0], ',', giou, ',', sorted_align_cost)
-                        breakpoint()
+
+                        if PRINT_PREDICTIONS_AT_BREAKPOINT:
+                            print("'" + img_name + "'", ',',
+                                  normalized_sorted_boxes_xyxy, ',',
+                                  normalized_sorted_arms_xyxy[0], ',', giou,
+                                  ',', sorted_align_cost)
+                            breakpoint()
 
                     if SAVE_EVALUATION_PREDICTIONS:
                         normalized_sorted_arms_xyxy = sorted_arms / torch.tensor(

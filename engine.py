@@ -105,35 +105,49 @@ def train_one_epoch(
         if args.masks:
             outputs = model(samples, captions)
         else:
+            # First pass through the model
             memory_cache, pose_out = model(samples,
                                            captions=captions,
                                            encode_and_save=True,
                                            paf_samples=pafs)
-            if pose_out is not None:
+            # Xiaoxue Chen's implementation of arm loss computation
+            if pose_out is not None and PREDICT_POSE_USING_A_DIFFERENT_MODEL:
                 for k in range(3):
                     pose_loss, target_arm, pred_arm = \
                         get_pose_loss(pose_out['{0}_arms'.format(k)],
                                       pose_out['{0}_arm_score'.format(k)],
                                       target_arms,
-                                      k)
+                                      k)    # Shape:[4, 10, 4], [4, 10, 2], 4
                     loss_dict.update(pose_loss)
 
-            # Pass in the encodings of memory_cache['tokenized'].
-            # Otherwise, memory_cache['tokenized']._encodings passed in can
-            # sometimes get lost inside the function below.
-            # Specifically, memory_cache['tokenized']._encodings inside the
-            # function below sometimes become empty if not pass in
-            # the encodings of memory_cache['tokenized'] and manually set it
-            # in the function below.
+            # Second pass through the model.
+            #   Pass in the encodings of memory_cache['tokenized'].
+            #   Otherwise, memory_cache['tokenized']._encodings passed in can
+            #   sometimes get lost inside the function below.
+            #   Specifically, memory_cache['tokenized']._encodings inside the
+            #   function below sometimes become empty if not pass in
+            #   the encodings of memory_cache['tokenized'] and manually set it
+            #   in the function below.
             outputs = model(samples, captions, encode_and_save=False,
                             memory_cache=memory_cache,
                             arm_query=target_arm,
                             encodings_of_tokenized=memory_cache['tokenized']._encodings)
 
-            # Add pred_arm into outputs
-            if pose_out is not None:
+            # Xiaoxue Chen's implementation of adding pred_arm ot outputs
+            if pose_out is not None and PREDICT_POSE_USING_A_DIFFERENT_MODEL:
                 outputs.update({'pred_arm': pred_arm})  # last layer
                 outputs.update(pose_out)
+
+            # Get the predicted arm and compute arm loss using the same transformer
+            if args.pose and not PREDICT_POSE_USING_A_DIFFERENT_MODEL:
+                # This '2' was hard-coded by Xiaoxue Chen
+                i = 2
+                pose_loss, target_arm, pred_arm = \
+                    get_pose_loss(outputs['{0}_arms'.format(i)],
+                                  outputs['{0}_arm_score'.format(i)],
+                                  target_arms, i)
+                loss_dict.update(pose_loss)
+                outputs.update({'pred_arm': pred_arm})
 
             # Save predictions to lists and write them into a file
             if SAVE_MDETR_PREDICTIONS:
@@ -323,22 +337,41 @@ def evaluate(
         pred_arm = None
         pose_out = None
 
-        # embed()
+        # First pass through the model
         memory_cache, pose_out = model(samples, captions, encode_and_save=True,
                                        paf_samples=pafs, img_names=img_names)
-        if pose_out is not None:
-            for i in range(3):
-                pose_loss, target_arm, pred_arm = \
-                    get_pose_loss(pose_out['{0}_arms'.format(i)],
-                                  pose_out['{0}_arm_score'.format(i)],
-                                  target_arms, i)
-                loss_dict.update(pose_loss)
+        # Xiaoxue Chen's implementation of arm loss computation
+        if args.pose and PREDICT_POSE_USING_A_DIFFERENT_MODEL:
+            if pose_out is not None:
+                for i in range(3):
+                    pose_loss, target_arm, pred_arm = \
+                        get_pose_loss(pose_out['{0}_arms'.format(i)],
+                                      pose_out['{0}_arm_score'.format(i)],
+                                      target_arms, i)
+                    loss_dict.update(pose_loss)
+
+        # Second pass through the model
         outputs = model(samples, captions, encode_and_save=False,
                         memory_cache=memory_cache, arm_query=target_arm,
                         img_names=img_names)
-        if pose_out is not None:
-            outputs.update({'pred_arm': pred_arm})  # last layer
-            outputs.update(pose_out)
+
+        # Xiaoxue Chen's implementation of adding pred_arm ot outputs
+        if args.pose and PREDICT_POSE_USING_A_DIFFERENT_MODEL:
+            if pose_out is not None:
+                outputs.update({'pred_arm': pred_arm})  # last layer
+                outputs.update(pose_out)
+
+        # Get the predicted arm and compute arm loss using the same transformer
+        if args.pose and not PREDICT_POSE_USING_A_DIFFERENT_MODEL:
+            # This '2' was hard-coded by Xiaoxue Chen
+            i = 2
+            pose_loss, target_arm, pred_arm = \
+                get_pose_loss(outputs['{0}_arms'.format(i)],
+                              outputs['{0}_arm_score'.format(i)],
+                              target_arms, i)
+            loss_dict.update(pose_loss)
+            outputs.update({'pred_arm': pred_arm})
+
 
         if criterion is not None:
             loss_dict.update(criterion(outputs, targets, positive_map))

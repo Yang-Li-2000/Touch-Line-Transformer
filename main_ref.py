@@ -337,6 +337,7 @@ def main(args):
               USE_MDETR_PREDICTIONS_AS_GROUNDTRUTHS)
     print('REPLACE_ARM_WITH_EYE_TO_FINGERTIP:    ',
           REPLACE_ARM_WITH_EYE_TO_FINGERTIP)
+    print('PREDICT_POSE_USING_A_DIFFERENT_MODEL: ', PREDICT_POSE_USING_A_DIFFERENT_MODEL)
     print('ARM_LOSS_COEF:                        ', ARM_LOSS_COEF)
     print('ARM_SCORE_LOSS_COEF:                  ', ARM_SCORE_LOSS_COEF)
     print('ARM_BOX_ALIGN_LOSS_COEF:              ', ARM_BOX_ALIGN_LOSS_COEF)
@@ -616,10 +617,16 @@ def main(args):
             # unscaled_contrastive_align_loss =  test_stats['yourefit_loss_contrastive_align_unscaled']
 
             if dist.get_world_size() > 1:
-                pose_decoder_last_layer_index = len(
-                    model.module.pose_decoder) - 1
+                if PREDICT_POSE_USING_A_DIFFERENT_MODEL:
+                    pose_decoder_last_layer_index = len(
+                        model.module.pose_decoder) - 1
+                else:
+                    pose_decoder_last_layer_index = POSE_MLP_NUM_LAYERS - 1
             else:
-                pose_decoder_last_layer_index = len(model.pose_decoder) - 1
+                if PREDICT_POSE_USING_A_DIFFERENT_MODEL:
+                    pose_decoder_last_layer_index = len(model.pose_decoder) - 1
+                else:
+                    pose_decoder_last_layer_index = POSE_MLP_NUM_LAYERS - 1
             # unscaled_pose_loss = test_stats['yourefit_pose_loss_' + str(pose_decoder_last_layer_index) + '_unscaled']
             unscaled_arm_loss = test_stats['yourefit_arm_loss_' + str(
                 pose_decoder_last_layer_index) + '_unscaled']
@@ -702,10 +709,16 @@ def main(args):
                 'loss_contrastive_align_unscaled']
 
             if dist.get_world_size() > 1:
-                pose_decoder_last_layer_index = len(
-                    model.module.pose_decoder) - 1
+                if PREDICT_POSE_USING_A_DIFFERENT_MODEL:
+                    pose_decoder_last_layer_index = len(
+                        model.module.pose_decoder) - 1
+                else:
+                    pose_decoder_last_layer_index = POSE_MLP_NUM_LAYERS - 1
             else:
-                pose_decoder_last_layer_index = len(model.pose_decoder) - 1
+                if PREDICT_POSE_USING_A_DIFFERENT_MODEL:
+                    pose_decoder_last_layer_index = len(model.pose_decoder) - 1
+                else:
+                    pose_decoder_last_layer_index = POSE_MLP_NUM_LAYERS - 1
             # unscaled_pose_loss = train_stats['pose_loss_' + str(pose_decoder_last_layer_index) + '_unscaled']
             unscaled_arm_loss = train_stats[
                 'arm_loss_' + str(pose_decoder_last_layer_index) + '_unscaled']
@@ -806,10 +819,16 @@ def main(args):
                 'yourefit_loss_contrastive_align_unscaled']
 
             if dist.get_world_size() > 1:
-                pose_decoder_last_layer_index = len(
-                    model.module.pose_decoder) - 1
+                if PREDICT_POSE_USING_A_DIFFERENT_MODEL:
+                    pose_decoder_last_layer_index = len(
+                        model.module.pose_decoder) - 1
+                else:
+                    pose_decoder_last_layer_index = POSE_MLP_NUM_LAYERS - 1
             else:
-                pose_decoder_last_layer_index = len(model.pose_decoder) - 1
+                if PREDICT_POSE_USING_A_DIFFERENT_MODEL:
+                    pose_decoder_last_layer_index = len(model.pose_decoder) - 1
+                else:
+                    pose_decoder_last_layer_index = POSE_MLP_NUM_LAYERS - 1
             # unscaled_pose_loss = test_stats['yourefit_pose_loss_' + str(pose_decoder_last_layer_index) + '_unscaled']
             unscaled_arm_loss = test_stats['yourefit_arm_loss_' + str(
                 pose_decoder_last_layer_index) + '_unscaled']

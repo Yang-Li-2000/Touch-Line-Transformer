@@ -121,7 +121,13 @@ class MDETR(nn.Module):
                                     kernel_size=1)
 
         self.pose = pose
-        if self.pose:
+
+        if self.pose and not PREDICT_POSE_USING_A_DIFFERENT_MODEL:
+            self.eye_embed = MLP(hidden_dim, hidden_dim, 2, POSE_MLP_NUM_LAYERS)
+            self.fingertip_embed = MLP(hidden_dim, hidden_dim, 2, POSE_MLP_NUM_LAYERS)
+            self.unified_arm_class_embed = MLP(hidden_dim, hidden_dim, 2, POSE_MLP_NUM_LAYERS)
+
+        if self.pose and PREDICT_POSE_USING_A_DIFFERENT_MODEL:
             self.arm_query_proj = nn.Conv1d(4, 256, kernel_size=1)
             pose_encoder_layer = TransformerEncoderLayer(hidden_dim,
                                                          transformer.nhead)
@@ -188,7 +194,7 @@ class MDETR(nn.Module):
             query_embed = self.query_embed.weight
 
             pose_out = None
-            if self.pose:
+            if self.pose and PREDICT_POSE_USING_A_DIFFERENT_MODEL:
                 pose_out = {}
                 bs = src.shape[0]
                 pose_src = self.pose_input_proj(src).flatten(2).permute(2, 0, 1)
@@ -270,6 +276,20 @@ class MDETR(nn.Module):
                     # "pred_scores":outputs_score[-1],
                 }
             )
+
+            # Predict eye and fingertip
+            if self.pose and not PREDICT_POSE_USING_A_DIFFERENT_MODEL:
+                outputs_eye = self.eye_embed(hs).sigmoid()
+                outputs_fingertip = self.fingertip_embed(hs).sigmoid()
+                arm_classes = self.unified_arm_class_embed(hs)
+                arms = torch.cat([outputs_eye, outputs_fingertip], -1)
+                # this '2' was hard-coded by Xiaoxue Chen
+                i = 2
+                out.update({
+                    '{}_arms'.format(i): arms[-1],
+                    '{}_arm_score'.format(i): arm_classes[-1]
+                })
+
             outputs_isfinal = None
             if self.isfinal_embed is not None:
                 outputs_isfinal = self.isfinal_embed(hs)
@@ -1001,8 +1021,13 @@ def get_pose_loss(arm, arm_class, target_arm, idx=0):
         target_arm[i] = torch.tensor([[0.0, 0.0, 1.0, 1.0]]).to(arm.device)
 
     target_arm = torch.cat(target_arm, 0)
-    l1_dist = F.l1_loss(arm, target_arm.unsqueeze(1).repeat(1, 10, 1),
-                        reduction='none').sum(dim=2)
+    if PREDICT_POSE_USING_A_DIFFERENT_MODEL:
+        l1_dist = F.l1_loss(arm, target_arm.unsqueeze(1).repeat(1, 10, 1),
+                            reduction='none').sum(dim=2) # Hard-coded by Xiaoxue Chen
+    else:
+        num_queries = arm.shape[1]
+        expanded_target_arm = target_arm.unsqueeze(1).repeat(1, num_queries, 1)
+        l1_dist = F.l1_loss(arm, expanded_target_arm, reduction='none').sum(dim=2)
     min_dist, min_idx = torch.min(l1_dist, dim=1)
 
     cls_weights = [0.2, 0.8]
