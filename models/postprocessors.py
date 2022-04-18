@@ -126,8 +126,100 @@ class PostProcessPhrasecut(nn.Module):
 class PostProcess(nn.Module):
     """ This module converts the model's output into the format expected by the coco api"""
 
+
+    # TODO: create a function to compute the alignment between box and text
+    def loss_contrastive_align(self, outputs, targets, temperature=0.07):
+        # TODO: fix temperature
+        # Construct dummy indices
+        bs = outputs["proj_queries"].shape[0]
+        indices = []
+        for i in range(bs):
+            query_index = torch.tensor([0])
+            target_index = torch.tensor([0])
+            index_pair = (query_index, target_index)
+            indices.append(index_pair)
+
+        num_queries = outputs['pred_boxes'].shape[1]
+        num_boxes = num_queries * bs
+
+        # Compute logits
+        tokenized = outputs["tokenized"]
+        normalized_text_emb = outputs["proj_tokens"]
+        normalized_img_emb = outputs["proj_queries"]
+        logits = (
+                torch.matmul(normalized_img_emb,
+                             normalized_text_emb.transpose(-1, -2)) / temperature
+        )
+
+        # Construct positive map using dummy indices.
+        positive_map = torch.zeros(logits.shape, dtype=torch.bool)
+        for i, ((idx_src, idx_tgt), tgt) in enumerate(zip(indices, targets)):
+            if "tokens_positive" in tgt:
+                cur_tokens = [tgt["tokens_positive"][j] for j in idx_tgt]
+            else:
+                cur_tokens = [tgt["tokens"][j] for j in idx_tgt]
+
+            for j, tok_list in enumerate(cur_tokens):
+                for (beg, end) in tok_list:
+                    beg_pos = tokenized.char_to_token(i, beg)
+                    end_pos = tokenized.char_to_token(i, end - 1)
+                    if beg_pos is None:
+                        try:
+                            beg_pos = tokenized.char_to_token(beg + 1)
+                            if beg_pos is None:
+                                beg_pos = tokenized.char_to_token(beg + 2)
+                        except:
+                            beg_pos = None
+                    if end_pos is None:
+                        try:
+                            end_pos = tokenized.char_to_token(end - 2)
+                            if end_pos is None:
+                                end_pos = tokenized.char_to_token(end - 3)
+                        except:
+                            end_pos = None
+                    if beg_pos is None or end_pos is None:
+                        continue
+
+                    assert beg_pos is not None and end_pos is not None
+                    positive_map[i, idx_src[j], beg_pos: end_pos + 1].fill_(
+                        True)
+
+        # Process the positive_map created using dummy indices
+        # so that all queries for one image are matched to the same tokens
+        positive_map_for_each_image = []
+        for image_index in range(positive_map.shape[0]):
+            positive_map_for_current_image = \
+                positive_map[image_index][0].repeat(num_queries,1)
+            positive_map_for_each_image.append(positive_map_for_current_image)
+        positive_map = torch.stack(positive_map_for_each_image)
+        positive_map = positive_map.to(logits.device)
+
+        # Fill positions for un-matched tokens with 0
+        positive_logits = -logits.masked_fill(~positive_map, 0)
+        negative_logits = logits
+
+        boxes_with_pos = positive_map.any(2)
+        pos_term_box_to_token = positive_logits.sum(2)
+        neg_term_box_to_token = negative_logits.logsumexp(2)
+        nb_pos_box_to_token = positive_map.sum(2) + 1e-6
+        raw_box_to_token_loss = \
+            ((pos_term_box_to_token / nb_pos_box_to_token + neg_term_box_to_token)).masked_fill(~boxes_with_pos, 0).detach()
+
+        # tokens_with_pos = positive_map.any(1)
+        # pos_term_token_to_box = positive_logits.sum(1)
+        # neg_term_token_to_box = negative_logits.logsumexp(1)
+        # nb_postoken_to_box = positive_map.sum(1) + 1e-6
+        # raw_tokens_to_boxes_loss = \
+        #     ((pos_term_token_to_box / nb_postoken_to_box + neg_term_token_to_box)).masked_fill(~tokens_with_pos, 0).detach()
+
+        return raw_box_to_token_loss
+
+
+
+
+
     @torch.no_grad()
-    def forward(self, outputs, target_sizes, img_names=None):
+    def forward(self, outputs, target_sizes, img_names=None, targets=None):
         """Perform the computation
         Parameters:
             outputs: raw outputs of the model
@@ -135,22 +227,16 @@ class PostProcess(nn.Module):
                           For evaluation, this must be the original image size (before any data augmentation)
                           For visualization, this should be the image size after data augment, but before padding
         """
+
+        # Call the function that computes the alignment between box and text
+        align_cost = self.loss_contrastive_align(outputs, targets)
+
         out_logits, out_bbox = outputs["pred_logits"], outputs["pred_boxes"]
         # scores, out_bbox = outputs["pred_scores"], outputs["pred_boxes"]
 
         prob = F.softmax(out_logits, -1)
-        scores, labels = prob[..., :-1].max(-1)
-
-        # labels = torch.ones_like(labels)
 
         scores = 1 - prob[:, :, -1]
-
-        max_score, score_idx = scores.max(dim=1)
-
-        # global img_token_pairs
-        # for i in range(len(img_names)):
-        #     img_token_pairs[img_names[i]] = score_idx[i].detach().cpu().numpy()
-        # torch.save(img_token_pairs, "img_token_pairs.pth")
 
         # convert to [x0, y0, x1, y1] format
         boxes = box_ops.box_cxcywh_to_xyxy(out_bbox)
@@ -160,7 +246,7 @@ class PostProcess(nn.Module):
         boxes = boxes * scale_fct[:, None, :]
 
         # assert len(scores) == len(labels) == len(boxes)
-        results = [{"scores": s, "boxes": b} for s, b in zip(scores, boxes)]
+        results = [{"scores": s, "boxes": b, "align_cost": a} for s, b, a in zip(scores, boxes, align_cost)]
 
         if 'pred_arm' in outputs:
             for i in range(len(results)):
@@ -168,6 +254,8 @@ class PostProcess(nn.Module):
                 pred_arm = pred_arm * scale_fct[:, None, :]
                 results[i]['pred_arm'] = pred_arm[i]
 
+        # TODO: the '2' is hard-coded by Xiaoxue Chen.
+        #  Consider modifying it to make it more general
         if '2_arms' in outputs:
             arms, arm_scores = outputs["2_arms"], outputs["2_arm_score"]
             arms = arms * scale_fct[:, None, :]

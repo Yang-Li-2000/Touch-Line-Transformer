@@ -75,7 +75,9 @@ def create_positive_map(tokenized, tokens_positive):
 
             assert beg_pos is not None and end_pos is not None
             positive_map[j, beg_pos: end_pos + 1].fill_(1)
-    return positive_map / (positive_map.sum(-1)[:, None] + 1e-6)
+
+    result = positive_map / (positive_map.sum(-1)[:, None] + 1e-6)
+    return result
 
 
 class DatasetNotFoundError(Exception):
@@ -319,6 +321,7 @@ class ReferDataset(data.Dataset):
         assert target['arm'].shape[0] == 4
 
         assert len(target["boxes"]) == len(target["tokens_positive"])
+        # TODO: check if 'tokenized' can be used as embedded text
         tokenized = self.tokenizer(phrase, return_tensors="pt")
         target["positive_map"] = create_positive_map(tokenized,
                                                      target["tokens_positive"])
@@ -490,6 +493,7 @@ class YouRefItEvaluator(object):
             arm_ymax_list = []
             box_score_list = []
             giou_list = []
+            align_cost_list = []
 
             for image_id in self.predictions.keys():
                 # print('Evaluating{0}...'.format(image_id))
@@ -502,9 +506,12 @@ class YouRefItEvaluator(object):
                 assert prediction is not None
                 sorted_scores_boxes = sorted(
                     zip(prediction["scores"].tolist(),
-                        prediction["boxes"].tolist()), reverse=True
+                        prediction["boxes"].tolist(),
+                        prediction["align_cost"].tolist()), reverse=True
                 )
-                sorted_scores, sorted_boxes = zip(*sorted_scores_boxes)
+                sorted_scores, sorted_boxes, sorted_align_cost = zip(*sorted_scores_boxes)
+                sorted_align_cost = torch.tensor(sorted_align_cost)
+
                 sorted_boxes = torch.cat(
                     [torch.as_tensor(x).view(1, 4) for x in sorted_boxes])
                 giou = generalized_box_iou(sorted_boxes,
@@ -538,7 +545,7 @@ class YouRefItEvaluator(object):
                             [W, H, W, H], device=sorted_boxes.device)
                         print("'" + img_name + "'", ',',
                               normalized_sorted_boxes_xyxy, ',',
-                              normalized_sorted_arms_xyxy[0], ',', giou)
+                              normalized_sorted_arms_xyxy[0], ',', giou, ',', sorted_align_cost)
                         breakpoint()
 
                     if SAVE_EVALUATION_PREDICTIONS:
@@ -554,6 +561,7 @@ class YouRefItEvaluator(object):
                             current_arm = top_arm
                             current_box_score = sorted_scores[i]
                             current_giou = giou[i]
+                            current_align_cost = sorted_align_cost[i]
                             box_xmin, box_ymin, box_xmax, box_ymax = current_box
                             arm_xmin, arm_ymin, arm_xmax, arm_ymax = current_arm
 
@@ -572,6 +580,7 @@ class YouRefItEvaluator(object):
 
                             box_score_list.append(current_box_score)
                             giou_list.append(current_giou.item())
+                            align_cost_list.append(current_align_cost.item())
 
                 for thresh_iou in self.thresh_iou:
                     if max(giou[0]) >= thresh_iou:
@@ -591,7 +600,8 @@ class YouRefItEvaluator(object):
                                    'arm_xmax': arm_xmax_list,
                                    'arm_ymax': arm_ymax_list,
                                    'box_score': box_score_list,
-                                   'giou': giou_list})
+                                   'giou': giou_list,
+                                   'align_cost': align_cost_list})
                 df = df.astype({'image_name': 'str',
                                 'box_xmin': 'float',
                                 'box_ymin': 'float',
@@ -602,7 +612,8 @@ class YouRefItEvaluator(object):
                                 'arm_xmax': 'float',
                                 'arm_ymax': 'float',
                                 'box_score': 'float',
-                                'giou': 'float'})
+                                'giou': 'float',
+                                'align_cost': 'float'})
 
                 # Save df to disk
                 if not os.path.exists(prediction_dir):

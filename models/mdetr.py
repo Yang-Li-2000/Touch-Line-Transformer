@@ -221,7 +221,7 @@ class MDETR(nn.Module):
                 mask,
                 query_embed,
                 pos[-1],
-                captions,
+                text=captions,
                 encode_and_save=True,
                 text_memory=None,
                 img_memory=None,
