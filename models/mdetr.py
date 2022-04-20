@@ -947,7 +947,7 @@ class SetCriterion(nn.Module):
         outputs_without_aux = {k: v for k, v in outputs.items() if
                                k != "aux_outputs"}
 
-        if 'pred_arm' not in outputs_without_aux.keys():
+        if ARGS_POSE and 'pred_arm' not in outputs_without_aux.keys():
             raise RuntimeError('missing predicted arm from outputs')
         # Retrieve the matching between the outputs of the last layer and the targets
         indices = self.matcher(outputs_without_aux, targets, positive_map)

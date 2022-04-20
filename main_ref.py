@@ -319,7 +319,7 @@ def main(args):
         with open(args.dataset_config, "r") as f:
             cfg = json.load(f)
         d.update(cfg)
-
+    ARGS_POSE = args.pose
     # print("git:\n  {}\n".format(utils.get_sha()))
 
     # Segmentation related
@@ -332,6 +332,7 @@ def main(args):
 
     print()
     print()
+    print('args.pose:                            ', args.pose)
     if USE_MDETR_PREDICTIONS_AS_GROUNDTRUTHS:
         print('USE_MDETR_PREDICTIONS_AS_GROUNDTRUTHS:',
               USE_MDETR_PREDICTIONS_AS_GROUNDTRUTHS)
@@ -720,12 +721,18 @@ def main(args):
                 else:
                     pose_decoder_last_layer_index = POSE_MLP_NUM_LAYERS - 1
             # unscaled_pose_loss = train_stats['pose_loss_' + str(pose_decoder_last_layer_index) + '_unscaled']
-            unscaled_arm_loss = train_stats[
-                'arm_loss_' + str(pose_decoder_last_layer_index) + '_unscaled']
-            unscaled_arm_score_loss = train_stats['arm_score_loss_' + str(
-                pose_decoder_last_layer_index) + '_unscaled']
-            unscaled_arm_box_align_loss = train_stats[
-                'arm_box_aligned_loss_unscaled']
+            if ARGS_POSE:
+                unscaled_arm_loss = train_stats[
+                    'arm_loss_' + str(
+                        pose_decoder_last_layer_index) + '_unscaled']
+                unscaled_arm_score_loss = train_stats['arm_score_loss_' + str(
+                    pose_decoder_last_layer_index) + '_unscaled']
+                unscaled_arm_box_align_loss = train_stats[
+                    'arm_box_aligned_loss_unscaled']
+            else:
+                unscaled_arm_loss = -1
+                unscaled_arm_score_loss = -1
+                unscaled_arm_box_align_loss = -1
 
             # Write losses to tensorboard
             writer.add_scalar('Loss/train_total', total_loss, epoch_number)
@@ -830,13 +837,18 @@ def main(args):
                 else:
                     pose_decoder_last_layer_index = POSE_MLP_NUM_LAYERS - 1
             # unscaled_pose_loss = test_stats['yourefit_pose_loss_' + str(pose_decoder_last_layer_index) + '_unscaled']
-            unscaled_arm_loss = test_stats['yourefit_arm_loss_' + str(
-                pose_decoder_last_layer_index) + '_unscaled']
-            unscaled_arm_score_loss = test_stats[
-                'yourefit_arm_score_loss_' + str(
+            if ARGS_POSE:
+                unscaled_arm_loss = test_stats['yourefit_arm_loss_' + str(
                     pose_decoder_last_layer_index) + '_unscaled']
-            unscaled_arm_box_align_loss = train_stats[
-                'arm_box_aligned_loss_unscaled']
+                unscaled_arm_score_loss = test_stats[
+                    'yourefit_arm_score_loss_' + str(
+                        pose_decoder_last_layer_index) + '_unscaled']
+                unscaled_arm_box_align_loss = train_stats[
+                    'arm_box_aligned_loss_unscaled']
+            else:
+                unscaled_arm_loss = -1
+                unscaled_arm_score_loss = -1
+                unscaled_arm_box_align_loss = -1
 
             # Write losses to tensorboard
             writer.add_scalar('Loss/valid_total', total_loss, epoch_number)

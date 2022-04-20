@@ -517,9 +517,10 @@ class YouRefItEvaluator(object):
                 giou = generalized_box_iou(sorted_boxes,
                                            torch.as_tensor(gt_bbox).view(-1, 4))
 
-                tmp_idx = prediction["arms_scores"].argmax()
-                arm_token_pair[img_name] = tmp_idx
-                torch.save(arm_token_pair, 'arm_token_pair.pth')
+                if ARGS_POSE:
+                    tmp_idx = prediction["arms_scores"].argmax()
+                    arm_token_pair[img_name] = tmp_idx
+                    torch.save(arm_token_pair, 'arm_token_pair.pth')
 
                 if 'arms' in prediction:
                     sorted_scores_arms = sorted(
