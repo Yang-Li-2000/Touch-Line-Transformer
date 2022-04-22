@@ -40,6 +40,16 @@ from util.box_ops import generalized_box_iou
 from magic_numbers import *
 import pandas as pd
 
+import torch
+if SAVE_EVALUATION_PREDICTIONS and SAVE_CLIP_SCORES:
+    import clip
+from PIL import Image
+
+import torchvision
+import torchvision.transforms as T
+
+transform = T.ToPILImage()
+
 cv2.setNumThreads(0)
 
 mdetr_predictions = pd.read_csv(MDETR_PREDICTION_PATH)
@@ -47,6 +57,22 @@ eye_to_fingertip_annotation_df_train = pd.read_csv(
     EYE_TO_FINGERTIP_ANNOTATION_TRAIN_PATH)
 eye_to_fingertip_annotation_df_valid = pd.read_csv(
     EYE_TO_FINGERTIP_ANNOTATION_VALID_PATH)
+
+
+def progressBar(i, max, text):
+    """
+    Print a progress bar during training.
+    :param i: index of current iteration/epoch.
+    :param max: max number of iterations/epochs.
+    :param text: Text to print on the right of the progress bar.
+    :return: None
+    """
+    bar_size = 60
+    j = (i + 1) / max
+    sys.stdout.write('\r')
+    sys.stdout.write(
+        f"[{'=' * int(bar_size * j):{bar_size}s}] {int(100 * j)}%  {text}")
+    sys.stdout.flush()
 
 
 def create_positive_map(tokenized, tokens_positive):
@@ -174,6 +200,14 @@ class ReferDataset(data.Dataset):
 
     def exists_dataset(self):
         return osp.exists(osp.join(self.split_root, self.dataset))
+
+    def pull_item_sentence(self, idx):
+        img_name = self.images[idx]
+        pickle_file = osp.join(osp.join(self.dataset_root, 'pickle'),
+                               img_name + '.p')
+        pick = pickle.load(open(pickle_file, "rb"))
+        sentence = pick['anno_sentence']
+        return sentence
 
     def pull_item_box(self, idx, return_img=False):
 
@@ -494,6 +528,13 @@ class YouRefItEvaluator(object):
             box_score_list = []
             giou_list = []
             align_cost_list = []
+            clip_score_list = []
+            sentence_list = []
+
+            total_num_images = len(self.predictions.keys())
+            current_image_index = 0
+            print()
+            print("Summarizing:")
 
             for image_id in self.predictions.keys():
                 # print('Evaluating{0}...'.format(image_id))
@@ -504,6 +545,8 @@ class YouRefItEvaluator(object):
 
                 prediction = self.predictions[image_id]
                 assert prediction is not None
+                device = prediction['scores'].device
+
                 sorted_scores_boxes = sorted(
                     zip(prediction["scores"].tolist(),
                         prediction["boxes"].tolist(),
@@ -513,9 +556,9 @@ class YouRefItEvaluator(object):
                 sorted_align_cost = torch.tensor(sorted_align_cost)
 
                 sorted_boxes = torch.cat(
-                    [torch.as_tensor(x).view(1, 4) for x in sorted_boxes])
+                    [torch.as_tensor(x).view(1, 4) for x in sorted_boxes]).to(device)
                 giou = generalized_box_iou(sorted_boxes,
-                                           torch.as_tensor(gt_bbox).view(-1, 4))
+                                           torch.as_tensor(gt_bbox).view(-1, 4).to(device))
 
                 if ARGS_POSE:
                     tmp_idx = prediction["arms_scores"].argmax()
@@ -529,7 +572,7 @@ class YouRefItEvaluator(object):
                     )
                     sorted_arm_scores, sorted_arms = zip(*sorted_scores_arms)
                     sorted_arms = torch.cat(
-                        [torch.as_tensor(x).view(1, 4) for x in sorted_arms])
+                        [torch.as_tensor(x).view(1, 4) for x in sorted_arms]).to(device)
 
                     if EVAL_EARLY_STOP:
                         fingertip_xyxy = sorted_arms[0, 2:4]
@@ -541,9 +584,9 @@ class YouRefItEvaluator(object):
                                                       dim=1)
 
                         normalized_sorted_arms_xyxy = sorted_arms / torch.tensor(
-                            [W, H, W, H], device=sorted_arms.device)
+                            [W, H, W, H], device=device)
                         normalized_sorted_boxes_xyxy = sorted_boxes / torch.tensor(
-                            [W, H, W, H], device=sorted_boxes.device)
+                            [W, H, W, H], device=device)
 
                         if PRINT_PREDICTIONS_AT_BREAKPOINT:
                             print("'" + img_name + "'", ',',
@@ -553,10 +596,15 @@ class YouRefItEvaluator(object):
                             breakpoint()
 
                     if SAVE_EVALUATION_PREDICTIONS:
+                        # initialize CLIP model
+                        if SAVE_CLIP_SCORES:
+                            clip_model, preprocess = clip.load("ViT-B/32", device=device)
+                            sentence = self.refexp_gt.pull_item_sentence(image_id)
+
                         normalized_sorted_arms_xyxy = sorted_arms / torch.tensor(
-                            [W, H, W, H], device=sorted_arms.device)
+                            [W, H, W, H], device=device)
                         normalized_sorted_boxes_xyxy = sorted_boxes / torch.tensor(
-                            [W, H, W, H], device=sorted_boxes.device)
+                            [W, H, W, H], device=device)
                         top_arm = normalized_sorted_arms_xyxy[0]
                         for i in range(len(normalized_sorted_boxes_xyxy)):
                             # Find out one prediction for current image
@@ -568,6 +616,39 @@ class YouRefItEvaluator(object):
                             current_align_cost = sorted_align_cost[i]
                             box_xmin, box_ymin, box_xmax, box_ymax = current_box
                             arm_xmin, arm_ymin, arm_xmax, arm_ymax = current_arm
+
+                            # Find out CLIP scores for current prediction
+                            if SAVE_CLIP_SCORES:
+                                abs_xmin, abs_ymin, abs_xmax, abs_ymax = sorted_boxes[i]
+                                abs_xmin, abs_ymin, abs_xmax, abs_ymax = int(abs_xmin), int(abs_ymin), int(abs_xmax), int(abs_ymax)
+                                # make sure coordinate does not exceed image width or height
+                                abs_xmin = max(0, abs_xmin)
+                                abs_ymin = max(0, abs_ymin)
+                                abs_xmax = min(W, abs_xmax - 1)
+                                abs_ymax = min(H, abs_ymax - 1)
+                                # using box coordinates to get current patch of image
+                                current_patch = img[abs_ymin:abs_ymax + 1, abs_xmin:abs_xmax + 1, :]
+                                current_patch = torch.tensor(current_patch, device=device).permute(2, 0, 1)
+                                # convert tensor to PIL
+                                current_patch = transform(current_patch)
+                                # CLIP preprocess patch
+                                current_patch = preprocess(current_patch).unsqueeze(0).to(device)
+                                # TODO: process the sentence for better clip scores
+                                processed_sentence = sentence
+                                # CLIP tokenize text. Two classes: is something AND nothing
+                                text = clip.tokenize([processed_sentence, 'nothing']).to(device)
+                                # compute CLIP score for current patch
+                                with torch.no_grad():
+                                    image_features = clip_model.encode_image(current_patch)
+                                    text_features = clip_model.encode_text(text)
+                                    logits_per_image, logits_per_text = clip_model(current_patch, text)
+                                    probs = logits_per_image.softmax(dim=-1).cpu().numpy()
+                                # Append clip score and sentence to list
+                                clip_score_list.append(probs[0, 0])
+                                sentence_list.append(sentence)
+                            else:
+                                clip_score_list.append(-1)
+                                sentence_list.append('n/a')
 
                             # Append one prediction to lists
                             image_name_list.append(current_image_name)
@@ -592,6 +673,11 @@ class YouRefItEvaluator(object):
 
                 dataset2count['yourefit'] += 1.0
 
+                status_string = '    ' + '[' + str(current_image_index + 1) + '/' + str(total_num_images) + ']'
+                progressBar(current_image_index, total_num_images, status_string)
+                current_image_index += 1
+
+
             # Create a dataframe to store all predictions
             if SAVE_EVALUATION_PREDICTIONS:
                 df = pd.DataFrame({'image_name': image_name_list,
@@ -605,7 +691,9 @@ class YouRefItEvaluator(object):
                                    'arm_ymax': arm_ymax_list,
                                    'box_score': box_score_list,
                                    'giou': giou_list,
-                                   'align_cost': align_cost_list})
+                                   'align_cost': align_cost_list,
+                                   'clip_score': clip_score_list,
+                                   'sentence': sentence_list})
                 df = df.astype({'image_name': 'str',
                                 'box_xmin': 'float',
                                 'box_ymin': 'float',
@@ -617,7 +705,9 @@ class YouRefItEvaluator(object):
                                 'arm_ymax': 'float',
                                 'box_score': 'float',
                                 'giou': 'float',
-                                'align_cost': 'float'})
+                                'align_cost': 'float',
+                                'clip_score': 'float',
+                                'sentence': 'str'})
 
                 # Save df to disk
                 if not os.path.exists(prediction_dir):

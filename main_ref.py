@@ -342,6 +342,8 @@ def main(args):
     print('ARM_LOSS_COEF:                        ', ARM_LOSS_COEF)
     print('ARM_SCORE_LOSS_COEF:                  ', ARM_SCORE_LOSS_COEF)
     print('ARM_BOX_ALIGN_LOSS_COEF:              ', ARM_BOX_ALIGN_LOSS_COEF)
+    print('args.bbox_loss_coef:                  ', args.bbox_loss_coef)
+    print('args.giou_loss_coef:                  ', args.giou_loss_coef)
     print('USE_GT__ARM_FOR_ARM_BOX_ALIGN_LOSS:   ',
           USE_GT__ARM_FOR_ARM_BOX_ALIGN_LOSS)
     if ARM_BOX_ALIGN_OFFSET_BY_GT:
