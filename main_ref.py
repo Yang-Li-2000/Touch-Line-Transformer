@@ -332,6 +332,7 @@ def main(args):
 
     print()
     print()
+    print('AMSGRAD:                              ', AMSGRAD)
     print('args.pose:                            ', args.pose)
     if USE_MDETR_PREDICTIONS_AS_GROUNDTRUTHS:
         print('USE_MDETR_PREDICTIONS_AS_GROUNDTRUTHS:',
@@ -429,7 +430,8 @@ def main(args):
                                     weight_decay=args.weight_decay)
     elif args.optimizer in ["adam", "adamw"]:
         optimizer = torch.optim.AdamW(param_dicts, lr=args.lr,
-                                      weight_decay=args.weight_decay)
+                                      weight_decay=args.weight_decay,
+                                      amsgrad=AMSGRAD)
     else:
         raise RuntimeError(f"Unsupported optimizer {args.optimizer}")
 
@@ -464,6 +466,7 @@ def main(args):
             batch_sampler=batch_sampler_train,
             collate_fn=partial(utils.collate_fn, False),
             num_workers=args.num_workers,
+            persistent_workers=PERSISTENT_WORKERS
         )
 
     # Val dataset
@@ -494,6 +497,7 @@ def main(args):
         drop_last=False,
         collate_fn=partial(utils.collate_fn, False),
         num_workers=args.num_workers,
+        persistent_workers=PERSISTENT_WORKERS
     )
     base_ds = None
     val_tuples.append(

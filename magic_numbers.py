@@ -37,3 +37,6 @@ PREDICT_POSE_USING_A_DIFFERENT_MODEL = False
 POSE_MLP_NUM_LAYERS = 3
 
 ARGS_POSE = None # will be updated by the program
+
+PERSISTENT_WORKERS = False
+AMSGRAD = True
