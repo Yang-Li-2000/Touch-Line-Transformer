@@ -557,8 +557,31 @@ class YouRefItEvaluator(object):
 
                 sorted_boxes = torch.cat(
                     [torch.as_tensor(x).view(1, 4) for x in sorted_boxes]).to(device)
-                giou = generalized_box_iou(sorted_boxes,
-                                           torch.as_tensor(gt_bbox).view(-1, 4).to(device))
+
+                # Handle the situation when the assertion
+                # (boxes1[:, 2:] >= boxes1[:, :2]).all() fails
+                boxes1 = sorted_boxes
+                boxes2 = torch.as_tensor(gt_bbox).view(-1, 4).to(device)
+                if not (boxes1[:, 2:] >= boxes1[:, :2]).all():
+                    for i in range(boxes1.shape[0]):
+                        current_row = boxes1[i]
+                        # swap max and min if current row's max < min
+                        if not current_row[2:] >= current_row[:2]:
+                            xmin, ymin, xmax, ymax = current_row
+                            if xmax < xmin:
+                                temp = xmin
+                                xmin = xmax
+                                xmax = temp
+                            if ymax < ymin:
+                                temp = ymin
+                                ymin = ymax
+                                ymax = temp
+                            boxes1[i][0] = xmin
+                            boxes1[i][1] = ymin
+                            boxes1[i][2] = xmax
+                            boxes1[i][3] = ymax
+
+                giou = generalized_box_iou(boxes1, boxes2)
 
                 if ARGS_POSE:
                     tmp_idx = prediction["arms_scores"].argmax()
