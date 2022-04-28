@@ -454,9 +454,12 @@ def main(args):
                                      transform=input_transform,
                                      augment=False, args=args)
         if args.distributed:
-            sampler_train = DistributedSampler(dataset_train)
+            sampler_train = DistributedSampler(dataset_train, shuffle=not TRAIN_EARLY_STOP)
         else:
             sampler_train = torch.utils.data.RandomSampler(dataset_train)
+            # not shuffle not implemented for single gpu training when TRAIN_EARLY_STOP is true
+            if TRAIN_EARLY_STOP:
+                print('not implemented: the data are being shuffled although TRAIN_EARLY_STOP is set to true')
 
         batch_sampler_train = torch.utils.data.BatchSampler(sampler_train,
                                                             args.batch_size,
