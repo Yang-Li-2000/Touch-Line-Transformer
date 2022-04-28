@@ -68,6 +68,8 @@ def train_one_epoch(
     list_for_xmax = []
     list_for_ymax = []
 
+    current_batch_index = 0
+
     num_training_steps = int(len(data_loader) * args.epochs)
     for i, batch_dict in enumerate(
             metric_logger.log_every(data_loader, print_freq, header,
@@ -142,10 +144,10 @@ def train_one_epoch(
             if args.pose and not PREDICT_POSE_USING_A_DIFFERENT_MODEL:
                 # This '2' was hard-coded by Xiaoxue Chen
                 i = 2
-                pose_loss, target_arm, pred_arm = \
-                    get_pose_loss(outputs['{0}_arms'.format(i)],
-                                  outputs['{0}_arm_score'.format(i)],
-                                  target_arms, i)
+                arm = outputs['{0}_arms'.format(i)]
+                arm_class = outputs['{0}_arm_score'.format(i)]
+                pose_loss, _, pred_arm = \
+                    get_pose_loss(arm, arm_class, target_arms, i)
                 loss_dict.update(pose_loss)
                 outputs.update({'pred_arm': pred_arm})
 
@@ -272,6 +274,10 @@ def train_one_epoch(
         metric_logger.update(lr=optimizer.param_groups[0]["lr"])
         metric_logger.update(lr_backbone=optimizer.param_groups[1]["lr"])
         metric_logger.update(lr_text_encoder=optimizer.param_groups[2]["lr"])
+
+        current_batch_index += 1
+        if TRAIN_EARLY_STOP_COUNT and current_batch_index >= TRAIN_EARLY_STOP_COUNT:
+            break
     # gather the stats from all processes
     metric_logger.synchronize_between_processes()
     print("Averaged stats:", metric_logger)
