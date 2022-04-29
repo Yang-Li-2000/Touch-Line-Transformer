@@ -446,7 +446,7 @@ def main(args):
     if not args.eval:
         # Deactivate transformations such as random flip and random crop when
         # saving the predictions of mdetr for distillation
-        if SAVE_MDETR_PREDICTIONS or DEACTIVATE_EXTRA_TRANSFORMS:
+        if SAVE_MDETR_PREDICTIONS or DEACTIVATE_EXTRA_TRANSFORMS or TRAIN_EARLY_STOP:
             input_transform = make_coco_transforms('val', False)
         else:
             input_transform = make_coco_transforms('train', False)
@@ -459,10 +459,10 @@ def main(args):
         if args.distributed:
             sampler_train = DistributedSampler(dataset_train, shuffle=not TRAIN_EARLY_STOP)
         else:
-            sampler_train = torch.utils.data.RandomSampler(dataset_train)
-            # not shuffle not implemented for single gpu training when TRAIN_EARLY_STOP is true
             if TRAIN_EARLY_STOP:
-                print('not implemented: the data are being shuffled although TRAIN_EARLY_STOP is set to true')
+                sampler_train = torch.utils.data.SequentialSampler(dataset_train)
+            else:
+                sampler_train = torch.utils.data.RandomSampler(dataset_train)
 
         batch_sampler_train = torch.utils.data.BatchSampler(sampler_train,
                                                             args.batch_size,
