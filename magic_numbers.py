@@ -27,11 +27,11 @@ prediction_dir = 'predictions'
 prediction_file_name = 'debug_with_clip_scores.csv'
 
 TRAIN_EARLY_STOP = False
-TRAIN_EARLY_STOP_COUNT = 10
+TRAIN_EARLY_STOP_COUNT = 20
 
 EVAL_EARLY_STOP = False
 PRINT_PREDICTIONS_AT_BREAKPOINT = False
-EVAL_EARLY_STOP_COUNT = 5
+EVAL_EARLY_STOP_COUNT = 20
 
 CHECKPOINT_FREQUENCY = 100
 
@@ -42,3 +42,11 @@ ARGS_POSE = None # will be updated by the program
 
 PERSISTENT_WORKERS = False
 AMSGRAD = True
+
+RESERVE_QUERIES_FOR_ARMS = True
+NUM_RESERVED_QUERIES_FOR_ARMS = 5
+
+#ARM_SCORE_CLASS_WEIGHTS = [0.2, 0.8]
+ARM_SCORE_CLASS_WEIGHTS = [0.02, 1] # It was hard-coded by Xiaoxue Chen as [0.2, 0.8]
+
+

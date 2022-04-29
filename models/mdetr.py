@@ -261,6 +261,12 @@ class MDETR(nn.Module):
             )
             out = {}
 
+            if RESERVE_QUERIES_FOR_ARMS:
+                hs_for_arm = hs[:, :, -NUM_RESERVED_QUERIES_FOR_ARMS:]
+                hs = hs[:, :, :-NUM_RESERVED_QUERIES_FOR_ARMS]
+            else:
+                hs_for_arm = hs
+
             # Manually set the encodings of memory_cache['tokenized'], because
             # sometimes it gets empty after passing it into the
             # forward function here.
@@ -279,9 +285,9 @@ class MDETR(nn.Module):
 
             # Predict eye and fingertip
             if self.pose and not PREDICT_POSE_USING_A_DIFFERENT_MODEL:
-                outputs_eye = self.eye_embed(hs).sigmoid()
-                outputs_fingertip = self.fingertip_embed(hs).sigmoid()
-                arm_classes = self.unified_arm_class_embed(hs)
+                outputs_eye = self.eye_embed(hs_for_arm).sigmoid()
+                outputs_fingertip = self.fingertip_embed(hs_for_arm).sigmoid()
+                arm_classes = self.unified_arm_class_embed(hs_for_arm)
                 arms = torch.cat([outputs_eye, outputs_fingertip], -1)
                 # this '2' was hard-coded by Xiaoxue Chen
                 i = 2
@@ -855,6 +861,9 @@ class SetCriterion(nn.Module):
 
         null_list = [i for i in range(bs) if targets[i]['arm'].shape[0] == 0]
 
+        if not USE_GT__ARM_FOR_ARM_BOX_ALIGN_LOSS and RESERVE_QUERIES_FOR_ARMS:
+            raise NotImplementedError()
+
         pred_arm = outputs['pred_arm'][idx[0]]
         target_arm = torch.cat(
             [t["arm"][i] for t, (_, i) in zip(targets, indices)], dim=0)
@@ -1030,11 +1039,12 @@ def get_pose_loss(arm, arm_class, target_arm, idx=0):
         l1_dist = F.l1_loss(arm, expanded_target_arm, reduction='none').sum(dim=2)
     min_dist, min_idx = torch.min(l1_dist, dim=1)
 
-    cls_weights = [0.2, 0.8]
+    cls_weights = ARM_SCORE_CLASS_WEIGHTS # It was hard-coded by Xiaoxue Chen as [0.2, 0.8]
     class_criterion = nn.CrossEntropyLoss(
         torch.Tensor(cls_weights).to(arm.device), reduction='none')
     arm_cls_label = torch.zeros((bs, num), dtype=torch.long).to(arm.device)
 
+    # Arm loss
     arm_loss = torch.tensor(0, dtype=target_arm.dtype, device=target_arm.device)
     for i in range(bs):
         if i in null_list:
@@ -1042,14 +1052,17 @@ def get_pose_loss(arm, arm_class, target_arm, idx=0):
         arm_cls_label[i, min_idx[i]] = 1
         arm_loss = arm_loss + min_dist[i]
 
+    # Score loss
     score_loss = class_criterion(arm_class.softmax(dim=2).transpose(2, 1),
                                  arm_cls_label).sum() / (
                              num * loss_scaling_factor_for_missing_annotations)
 
+    # Total loss
     pose_loss = ARM_LOSS_COEF * arm_loss + ARM_SCORE_LOSS_COEF * score_loss
+
+    # Predicted arm
     arm = arm.unsqueeze(2)
     matched_arm = torch.cat([i[j] for i, j in zip(arm, min_idx)], dim=0)
-
     for i in null_list:
         matched_arm[i] = torch.tensor([0.0, 0.0, 0.0, 0.0]).to(arm.device)
 
