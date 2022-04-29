@@ -141,6 +141,9 @@ def train_one_epoch(
                 outputs.update(pose_out)
 
             # Get the predicted arm and compute arm loss using the same transformer
+            # TODO: this should be computed before the arm-box-align loss,
+            #  so that the predicted arms with shortest l1 distanced can be
+            #  used for computing the arm-box-align loss
             if args.pose and not PREDICT_POSE_USING_A_DIFFERENT_MODEL:
                 # This '2' was hard-coded by Xiaoxue Chen
                 i = 2
@@ -276,7 +279,7 @@ def train_one_epoch(
         metric_logger.update(lr_text_encoder=optimizer.param_groups[2]["lr"])
 
         current_batch_index += 1
-        if TRAIN_EARLY_STOP_COUNT and current_batch_index >= TRAIN_EARLY_STOP_COUNT:
+        if TRAIN_EARLY_STOP and current_batch_index >= TRAIN_EARLY_STOP_COUNT:
             break
     # gather the stats from all processes
     metric_logger.synchronize_between_processes()
