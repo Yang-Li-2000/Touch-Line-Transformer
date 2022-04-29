@@ -26,6 +26,9 @@ from datasets.yourefit import ReferDataset, YouRefItEvaluator
 from datasets.coco import make_coco_transforms
 from magic_numbers import *
 from torch.utils.tensorboard import SummaryWriter
+import os
+os.environ['TOKENIZERS_PARALLELISM'] = 'false'
+np.seterr('raise')
 
 
 def string_to_bool(string):
@@ -890,13 +893,18 @@ def main(args):
                 f.write(json.dumps(log_stats) + "\n")
 
         if epoch % args.eval_skip == 0:
+            Save_Best_Checkpoint = True
             if args.do_qa:
                 metric = test_stats["gqa_accuracy_answer_total_unscaled"]
             else:
-                metric = np.mean([v[1] for k, v in test_stats.items() if
-                                  "coco_eval_bbox" in k])
+                temp = [v[1] for k, v in test_stats.items() if "coco_eval_bbox" in k]
+                if len(temp) > 0:
+                    metric = np.mean(temp)
+                else:
+                    metric = temp
+                    Save_Best_Checkpoint = False
 
-            if args.output_dir and metric > best_metric:
+            if Save_Best_Checkpoint and  args.output_dir and metric > best_metric:
                 best_metric = metric
                 checkpoint_paths = [output_dir / "BEST_checkpoint.pth"]
                 # extra checkpoint before LR drop and every 100 epochs
