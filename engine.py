@@ -149,7 +149,7 @@ def train_one_epoch(
                 i = 2
                 arm = outputs['{0}_arms'.format(i)]
                 arm_class = outputs['{0}_arm_score'.format(i)]
-                pose_loss, _, pred_arm = \
+                pose_loss, processed_target_arm, pred_arm = \
                     get_pose_loss(arm, arm_class, target_arms, i)
                 loss_dict.update(pose_loss)
                 outputs.update({'pred_arm': pred_arm})
