@@ -50,3 +50,5 @@ NUM_RESERVED_QUERIES_FOR_ARMS = 5
 ARM_SCORE_CLASS_WEIGHTS = [0.02, 1] # It was hard-coded by Xiaoxue Chen as [0.2, 0.8]
 
 
+DROP_LAST = True
+

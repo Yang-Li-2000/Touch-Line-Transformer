@@ -4,6 +4,6 @@
     "refexp_dataset_name": "yourefit",
     "coco_path": "/data/hdd01/cxx/mdetr/refcoco",
     "refexp_ann_path": "/data/hdd01/cxx/mdetr/datasets/OpenSource",
-    "epochs": 400,
+    "epochs": 200,
     "lr_drop": 300
 }
