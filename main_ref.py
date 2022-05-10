@@ -640,12 +640,12 @@ def main(args):
                     pose_decoder_last_layer_index = len(model.pose_decoder) - 1
                 else:
                     pose_decoder_last_layer_index = POSE_MLP_NUM_LAYERS - 1
-            # unscaled_pose_loss = test_stats['yourefit_pose_loss_' + str(pose_decoder_last_layer_index) + '_unscaled']
-            unscaled_arm_loss = test_stats['yourefit_arm_loss_' + str(
-                pose_decoder_last_layer_index) + '_unscaled']
-            unscaled_arm_score_loss = test_stats[
-                'yourefit_arm_score_loss_' + str(
-                    pose_decoder_last_layer_index) + '_unscaled']
+            # # unscaled_pose_loss = test_stats['yourefit_pose_loss_' + str(pose_decoder_last_layer_index) + '_unscaled']
+            # unscaled_arm_loss = test_stats['yourefit_arm_loss_' + str(
+            #     pose_decoder_last_layer_index) + '_unscaled']
+            # unscaled_arm_score_loss = test_stats[
+            #     'yourefit_arm_score_loss_' + str(
+            #         pose_decoder_last_layer_index) + '_unscaled']
 
             # Write losses to tensorboard
             # writer.add_scalar('Loss/valid_total', total_loss, epoch_number)

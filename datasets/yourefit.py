@@ -618,77 +618,94 @@ class YouRefItEvaluator(object):
                                   ',', sorted_align_cost)
                             breakpoint()
 
-                    if SAVE_EVALUATION_PREDICTIONS:
-                        # initialize CLIP model
-                        if SAVE_CLIP_SCORES:
-                            clip_model, preprocess = clip.load("ViT-B/32", device=device)
-                            sentence = self.refexp_gt.pull_item_sentence(image_id)
+                if SAVE_EVALUATION_PREDICTIONS:
+                    # initialize CLIP model
+                    if SAVE_CLIP_SCORES:
+                        clip_model, preprocess = clip.load("ViT-B/32",
+                                                           device=device)
+                        sentence = self.refexp_gt.pull_item_sentence(image_id)
 
+                    normalized_sorted_boxes_xyxy = sorted_boxes / torch.tensor(
+                        [W, H, W, H], device=device)
+
+                    if 'arms' in prediction:
                         normalized_sorted_arms_xyxy = sorted_arms / torch.tensor(
                             [W, H, W, H], device=device)
-                        normalized_sorted_boxes_xyxy = sorted_boxes / torch.tensor(
-                            [W, H, W, H], device=device)
                         top_arm = normalized_sorted_arms_xyxy[0]
-                        for i in range(len(normalized_sorted_boxes_xyxy)):
-                            # Find out one prediction for current image
-                            current_image_name = img_name
-                            current_box = normalized_sorted_boxes_xyxy[i]
-                            current_arm = top_arm
-                            current_box_score = sorted_scores[i]
-                            current_giou = giou[i]
-                            current_align_cost = sorted_align_cost[i]
-                            box_xmin, box_ymin, box_xmax, box_ymax = current_box
-                            arm_xmin, arm_ymin, arm_xmax, arm_ymax = current_arm
+                    else:
+                        top_arm = torch.tensor([-1, -1, -1, -1], device=normalized_sorted_boxes_xyxy.device)
 
-                            # Find out CLIP scores for current prediction
-                            if SAVE_CLIP_SCORES:
-                                abs_xmin, abs_ymin, abs_xmax, abs_ymax = sorted_boxes[i]
-                                abs_xmin, abs_ymin, abs_xmax, abs_ymax = int(abs_xmin), int(abs_ymin), int(abs_xmax), int(abs_ymax)
-                                # make sure coordinate does not exceed image width or height
-                                abs_xmin = max(0, abs_xmin)
-                                abs_ymin = max(0, abs_ymin)
-                                abs_xmax = min(W, abs_xmax - 1)
-                                abs_ymax = min(H, abs_ymax - 1)
-                                # using box coordinates to get current patch of image
-                                current_patch = img[abs_ymin:abs_ymax + 1, abs_xmin:abs_xmax + 1, :]
-                                current_patch = torch.tensor(current_patch, device=device).permute(2, 0, 1)
-                                # convert tensor to PIL
-                                current_patch = transform(current_patch)
-                                # CLIP preprocess patch
-                                current_patch = preprocess(current_patch).unsqueeze(0).to(device)
-                                # TODO: process the sentence for better clip scores
-                                processed_sentence = sentence
-                                # CLIP tokenize text. Two classes: is something AND nothing
-                                text = clip.tokenize([processed_sentence, 'nothing']).to(device)
-                                # compute CLIP score for current patch
-                                with torch.no_grad():
-                                    image_features = clip_model.encode_image(current_patch)
-                                    text_features = clip_model.encode_text(text)
-                                    logits_per_image, logits_per_text = clip_model(current_patch, text)
-                                    probs = logits_per_image.softmax(dim=-1).cpu().numpy()
-                                # Append clip score and sentence to list
-                                clip_score_list.append(probs[0, 0])
-                                sentence_list.append(sentence)
-                            else:
-                                clip_score_list.append(-1)
-                                sentence_list.append('n/a')
+                    for i in range(len(normalized_sorted_boxes_xyxy)):
+                        # Find out one prediction for current image
+                        current_image_name = img_name
+                        current_box = normalized_sorted_boxes_xyxy[i]
+                        current_arm = top_arm
+                        current_box_score = sorted_scores[i]
+                        current_giou = giou[i]
+                        current_align_cost = sorted_align_cost[i]
+                        box_xmin, box_ymin, box_xmax, box_ymax = current_box
+                        arm_xmin, arm_ymin, arm_xmax, arm_ymax = current_arm
 
-                            # Append one prediction to lists
-                            image_name_list.append(current_image_name)
+                        # Find out CLIP scores for current prediction
+                        if SAVE_CLIP_SCORES:
+                            abs_xmin, abs_ymin, abs_xmax, abs_ymax = \
+                            sorted_boxes[i]
+                            abs_xmin, abs_ymin, abs_xmax, abs_ymax = int(
+                                abs_xmin), int(abs_ymin), int(abs_xmax), int(
+                                abs_ymax)
+                            # make sure coordinate does not exceed image width or height
+                            abs_xmin = max(0, abs_xmin)
+                            abs_ymin = max(0, abs_ymin)
+                            abs_xmax = min(W, abs_xmax - 1)
+                            abs_ymax = min(H, abs_ymax - 1)
+                            # using box coordinates to get current patch of image
+                            current_patch = img[abs_ymin:abs_ymax + 1,
+                                            abs_xmin:abs_xmax + 1, :]
+                            current_patch = torch.tensor(current_patch,
+                                                         device=device).permute(
+                                2, 0, 1)
+                            # convert tensor to PIL
+                            current_patch = transform(current_patch)
+                            # CLIP preprocess patch
+                            current_patch = preprocess(current_patch).unsqueeze(
+                                0).to(device)
+                            # TODO: process the sentence for better clip scores
+                            processed_sentence = sentence
+                            # CLIP tokenize text. Two classes: is something AND nothing
+                            text = clip.tokenize(
+                                [processed_sentence, 'nothing']).to(device)
+                            # compute CLIP score for current patch
+                            with torch.no_grad():
+                                image_features = clip_model.encode_image(
+                                    current_patch)
+                                text_features = clip_model.encode_text(text)
+                                logits_per_image, logits_per_text = clip_model(
+                                    current_patch, text)
+                                probs = logits_per_image.softmax(
+                                    dim=-1).cpu().numpy()
+                            # Append clip score and sentence to list
+                            clip_score_list.append(probs[0, 0])
+                            sentence_list.append(sentence)
+                        else:
+                            clip_score_list.append(-1)
+                            sentence_list.append('n/a')
 
-                            box_xmin_list.append(box_xmin.item())
-                            box_ymin_list.append(box_ymin.item())
-                            box_xmax_list.append(box_xmax.item())
-                            box_ymax_list.append(box_ymax.item())
+                        # Append one prediction to lists
+                        image_name_list.append(current_image_name)
 
-                            arm_xmin_list.append(arm_xmin.item())
-                            arm_ymin_list.append(arm_ymin.item())
-                            arm_xmax_list.append(arm_xmax.item())
-                            arm_ymax_list.append(arm_ymax.item())
+                        box_xmin_list.append(box_xmin.item())
+                        box_ymin_list.append(box_ymin.item())
+                        box_xmax_list.append(box_xmax.item())
+                        box_ymax_list.append(box_ymax.item())
 
-                            box_score_list.append(current_box_score)
-                            giou_list.append(current_giou.item())
-                            align_cost_list.append(current_align_cost.item())
+                        arm_xmin_list.append(arm_xmin.item())
+                        arm_ymin_list.append(arm_ymin.item())
+                        arm_xmax_list.append(arm_xmax.item())
+                        arm_ymax_list.append(arm_ymax.item())
+
+                        box_score_list.append(current_box_score)
+                        giou_list.append(current_giou.item())
+                        align_cost_list.append(current_align_cost.item())
 
                 for thresh_iou in self.thresh_iou:
                     if max(giou[0]) >= thresh_iou:
