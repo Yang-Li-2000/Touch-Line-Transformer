@@ -52,7 +52,10 @@ transform = T.ToPILImage()
 
 cv2.setNumThreads(0)
 
-mdetr_predictions = pd.read_csv(MDETR_PREDICTION_PATH)
+if USE_MDETR_PREDICTIONS_AS_GROUNDTRUTHS:
+    mdetr_predictions = pd.read_csv(MDETR_PREDICTION_PATH)
+else:
+    mdetr_predictions = None
 eye_to_fingertip_annotation_df_train = pd.read_csv(
     EYE_TO_FINGERTIP_ANNOTATION_TRAIN_PATH)
 eye_to_fingertip_annotation_df_valid = pd.read_csv(
