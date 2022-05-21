@@ -26,7 +26,7 @@ from models.mdetr import get_pose_loss
 
 from magic_numbers import *
 import pandas as pd
-
+import temp_vars
 
 def train_one_epoch(
         model: torch.nn.Module,
@@ -260,7 +260,8 @@ def train_one_epoch(
         losses.backward()
         if max_norm > 0:
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm)
-        optimizer.step()
+        if not CALCULATE_COS_SIM:
+            optimizer.step()
 
         adjust_learning_rate(
             optimizer,
@@ -462,6 +463,14 @@ def evaluate(
     print("Averaged stats:", metric_logger)
     for evaluator in evaluator_list:
         evaluator.synchronize_between_processes()
+
+    if CALCULATE_COS_SIM:
+        print()
+        print('num_images:', temp_vars.image_count)
+        print("gt:", temp_vars.gt_cos_sim / temp_vars.image_count)
+        print('pred:', temp_vars.pred_cos_sim / temp_vars.image_count)
+        print()
+        breakpoint()
 
     refexp_res = None
     flickr_res = None

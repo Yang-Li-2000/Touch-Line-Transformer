@@ -27,6 +27,7 @@ from .transformer import build_transformer, TransformerEncoder, \
 # from .transformer_ori import TransformerDecoderLayer
 from util.box_ops import box_cxcywh_to_xyxy, generalized_box_iou
 from magic_numbers import *
+import temp_vars
 
 global img_size_pairs
 img_size_pairs = {}
@@ -861,7 +862,7 @@ class SetCriterion(nn.Module):
 
         null_list = [i for i in range(bs) if targets[i]['arm'].shape[0] == 0]
 
-        if not USE_GT__ARM_FOR_ARM_BOX_ALIGN_LOSS and RESERVE_QUERIES_FOR_ARMS:
+        if not USE_GT__ARM_FOR_ARM_BOX_ALIGN_LOSS and RESERVE_QUERIES_FOR_ARMS and not CALCULATE_COS_SIM:
             raise NotImplementedError()
 
         pred_arm = outputs['pred_arm'][idx[0]]
@@ -909,7 +910,21 @@ class SetCriterion(nn.Module):
         # Cosine similarities between ground truth eye-to-fingertip and eye-to-box
         gt_arm_tensor = target_arm[:, 2:4] - target_arm[:, 0:2]
         gt_box_tensor = target_boxes[:, :2] - target_arm[:, 0:2]
+        # Note: gt_cos_sim is 0 for indices in null_list
+        if CALCULATE_COS_SIM:
+            for i in range(len(gt_box_tensor)):
+                if i in null_list:
+                    continue
+                original_height, original_width = targets[i]['orig_size']
+                h_w_ratio = original_height / original_width
+                gt_arm_tensor[i][1] *= h_w_ratio
+                gt_box_tensor[i][1] *= h_w_ratio
         gt_cos_sim = F.cosine_similarity(gt_arm_tensor, gt_box_tensor, dim=1)
+
+        if CALCULATE_COS_SIM:
+            temp_vars.gt_cos_sim += gt_cos_sim.sum().item()
+            temp_vars.pred_cos_sim += cos_sim.sum().item()
+            temp_vars.image_count += gt_cos_sim.shape[0] - len(null_list)
 
         if ARM_BOX_ALIGN_OFFSET_BY_GT:
             offset = gt_cos_sim

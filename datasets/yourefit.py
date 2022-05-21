@@ -192,6 +192,12 @@ class ReferDataset(data.Dataset):
                                         'name'] == img_name[:-1]].shape[0] > 0
                             if has_eye_to_fingertip_annotation:
                                 self.images.append(img_name[:-1])
+                        # Exclude images without eye to fingertip annotations from the validaiton set
+                        # Useful when computing cosine similarities for the dataset
+                        elif REPLACE_ARM_WITH_EYE_TO_FINGERTIP and CALCULATE_COS_SIM and self.split == 'val':
+                            has_eye_to_fingertip_annotation = eye_to_fingertip_annotation_df_valid[eye_to_fingertip_annotation_df_valid['name'] == img_name[:-1]].shape[0] > 0
+                            if has_eye_to_fingertip_annotation:
+                                self.images.append(img_name[:-1])
                         else:
                             self.images.append(img_name[:-1])
                     else:
