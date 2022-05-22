@@ -20,6 +20,7 @@ import scipy.io as sio
 import torch.utils.data as data
 from collections import OrderedDict
 
+import temp_vars
 import util.dist
 
 sys.path.append('.')
@@ -36,7 +37,7 @@ from transformers import RobertaTokenizerFast
 sys.path.append('./datasets')
 from .yourefit_token import match_pos
 import copy
-from util.box_ops import generalized_box_iou
+from util.box_ops import generalized_box_iou, box_iou
 from magic_numbers import *
 import pandas as pd
 
@@ -589,8 +590,10 @@ class YouRefItEvaluator(object):
                             boxes1[i][1] = ymin
                             boxes1[i][2] = xmax
                             boxes1[i][3] = ymax
-
-                giou = generalized_box_iou(boxes1, boxes2)
+                if EVALUATE_USING_GIOU_THRESHODS:
+                    giou = generalized_box_iou(boxes1, boxes2)
+                else:
+                    giou, _ = box_iou(boxes1, boxes2)
 
                 if ARGS_POSE:
                     tmp_idx = prediction["arms_scores"].argmax()
@@ -716,15 +719,97 @@ class YouRefItEvaluator(object):
                         giou_list.append(current_giou.item())
                         align_cost_list.append(current_align_cost.item())
 
+                image_size = img.shape[0] * img.shape[1]
+                object_size = (gt_bbox[2] - gt_bbox[0]) * (gt_bbox[3] - gt_bbox[1])
+                object_size_wrt_image = object_size / image_size
+                if object_size_wrt_image > EVAL_SMALL_MEDIUM_LARGE_THRESHODS[-1]:
+                    temp_vars.large_object_count += 1
+                elif object_size_wrt_image > EVAL_SMALL_MEDIUM_LARGE_THRESHODS[-0]:
+                    temp_vars.medium_object_count += 1
+                else:
+                    temp_vars.small_object_count += 1
+
                 for thresh_iou in self.thresh_iou:
+                    success = False
                     if max(giou[0]) >= thresh_iou:
                         dataset2score["yourefit"][thresh_iou] += 1.0
+                        success = True
+
+
+                    if object_size_wrt_image < 0:
+                        raise RuntimeError()
+                    # Large objects
+                    elif object_size_wrt_image > EVAL_SMALL_MEDIUM_LARGE_THRESHODS[-1]:
+                        if success:
+                            if thresh_iou == 0.25:
+                                temp_vars.large_object_success_count_25 += 1
+                            elif thresh_iou == 0.50:
+                                temp_vars.large_object_success_count_50 += 1
+                            elif thresh_iou == 0.75:
+                                temp_vars.large_object_success_count_75 += 1
+                            else:
+                                raise RuntimeError()
+                    # Medium objects
+                    elif object_size_wrt_image > EVAL_SMALL_MEDIUM_LARGE_THRESHODS[0]:
+                        if success:
+                            if thresh_iou == 0.25:
+                                temp_vars.medium_object_success_count_25 += 1
+                            elif thresh_iou == 0.50:
+                                temp_vars.medium_object_success_count_50 += 1
+                            elif thresh_iou == 0.75:
+                                temp_vars.medium_object_success_count_75 += 1
+                            else:
+                                raise RuntimeError()
+                    # Small objects:
+                    else:
+                        if success:
+                            if thresh_iou == 0.25:
+                                temp_vars.small_object_success_count_25 += 1
+                            elif thresh_iou == 0.50:
+                                temp_vars.small_object_success_count_50 += 1
+                            elif thresh_iou == 0.75:
+                                temp_vars.small_object_success_count_75 += 1
+                            else:
+                                raise RuntimeError()
 
                 dataset2count['yourefit'] += 1.0
 
                 status_string = '    ' + '[' + str(current_image_index + 1) + '/' + str(total_num_images) + ']'
                 progressBar(current_image_index, total_num_images, status_string)
                 current_image_index += 1
+
+            total_object_count = temp_vars.large_object_count + \
+                                 temp_vars.medium_object_count + \
+                                 temp_vars.small_object_count
+
+            assert total_object_count == dataset2count['yourefit']
+
+            # Calculate precision for different object sizes
+            p_small_25 = temp_vars.small_object_success_count_25 / temp_vars.small_object_count
+            p_small_50 = temp_vars.small_object_success_count_50 / temp_vars.small_object_count
+            p_small_75 = temp_vars.small_object_success_count_75 / temp_vars.small_object_count
+
+            p_medium_25 = temp_vars.medium_object_success_count_25 / temp_vars.medium_object_count
+            p_medium_50 = temp_vars.medium_object_success_count_50 / temp_vars.medium_object_count
+            p_medium_75 = temp_vars.medium_object_success_count_75 / temp_vars.medium_object_count
+
+            p_large_25 = temp_vars.large_object_success_count_25 / temp_vars.large_object_count
+            p_large_50 = temp_vars.large_object_success_count_50 / temp_vars.large_object_count
+            p_large_75 = temp_vars.large_object_success_count_75 / temp_vars.large_object_count
+
+            print()
+            print("Small:")
+            print(p_small_25, p_small_50, p_small_75)
+            print()
+            print("Medium:")
+            print(p_medium_25, p_medium_50, p_medium_75)
+            print()
+            print("Large:")
+            print(p_large_25, p_large_50, p_large_75)
+            print()
+            print("All:")
+            print(dataset2score["yourefit"][0.25] / dataset2count['yourefit'], dataset2score["yourefit"][0.50] / dataset2count['yourefit'], dataset2score["yourefit"][0.75] / dataset2count['yourefit'])
+            print()
 
 
             # Create a dataframe to store all predictions
