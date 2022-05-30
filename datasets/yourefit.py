@@ -245,6 +245,9 @@ class ReferDataset(data.Dataset):
         bbox = pick['bbox']
         target_word = pick['anno_target']
         phrase = pick['anno_sentence']
+        if REPLACE_LANGUAGE_INPUTS:
+            phrase = DUMMY_LANGUAGE_INPUT
+            target_word = DUMMY_LANGUAGE_INPUT
         token_pos = match_pos(phrase, target_word)
         token_pos = [token_pos]
         bbox = np.array(bbox, dtype=int)  # x1y1x2y2
@@ -782,7 +785,7 @@ class YouRefItEvaluator(object):
                                  temp_vars.medium_object_count + \
                                  temp_vars.small_object_count
 
-            assert total_object_count == dataset2count['yourefit']
+            #assert total_object_count == dataset2count['yourefit']
 
             # Calculate precision for different object sizes
             p_small_25 = temp_vars.small_object_success_count_25 / temp_vars.small_object_count

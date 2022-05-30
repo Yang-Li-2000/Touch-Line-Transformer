@@ -55,3 +55,6 @@ DROP_LAST = True
 CALCULATE_COS_SIM = False # need to manually set use_gt_arm... to false and deactivate extra transforms
 EVALUATE_USING_GIOU_THRESHODS = False
 EVAL_SMALL_MEDIUM_LARGE_THRESHODS = [0.48/100, 1.76/100]
+
+REPLACE_LANGUAGE_INPUTS = False
+DUMMY_LANGUAGE_INPUT = 'object'
