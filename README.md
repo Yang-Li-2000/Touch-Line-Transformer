@@ -1,5 +1,5 @@
 # NVVC-RECT: Referring Expression Comprehension Transformer using Nonverbal and Verbal Cues
-Code for NeurIPS 2022 submission NVVC-RECT: Referring Expression Comprehension Transformer using Nonverbal and Verbal Cues.
+Code for CoRL 2022 submission Understanding Embodied Reference with Touch-Line Transformer.
 
 ## Project Structure
     Project_NAME/
@@ -56,8 +56,7 @@ conda install pytorch torchvision torchaudio cudatoolkit=11.3 -c pytorch
 
 
 ### 2. download data
-0. submit a form at https://yixchen.github.io/YouRefIt/request.html to request the download link for images and annotations.\
-1. download yourefit.zip
+1. Download YouRefIt images and annotations as yourefit.zip
 2. unzip yourefit.zip outside of this project and get a folder named "yourefit"
 3. move or copy "images", "pickle", "paf", and "saliency" in the "yourefit" outside of this project into the existing "yourefit" folder inside this project
 
