@@ -33,7 +33,7 @@ Modified from MDETR (https://github.com/ashkamath/mdetr) and YouRefIt (https://y
 pretrained: a directory contains checkpoints.
 
 pretrained/20_query_model.pth: we sliced (from 100 queries to 20 queries) the 
-checkpoint of the checkpoint provided by the authors of [MDETR](https://github.com/ashkamath/mdetr) 
+checkpoint of the checkpoint provided by the authors of MDETR
 
 yourefit: a directory that contains the downloaded YouRefIt dataset. 
 This directory will also contain inpainitings produced by readers. 
