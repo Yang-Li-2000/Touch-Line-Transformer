@@ -1,3 +1,6 @@
+# Copyright (c): Anonymous Authors. Licensed under the Apache License 2.0. All Rights Reserved
+# ------------------------------------------------------------------------
+# Modified from MDETR (https://github.com/ashkamath/mdetr)
 # Copyright (c) Aishwarya Kamath & Nicolas Carion. Licensed under the Apache License 2.0. All Rights Reserved
 """Postprocessors class to transform MDETR output according to the downstream task"""
 from typing import Dict
