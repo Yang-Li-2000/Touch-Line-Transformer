@@ -46,7 +46,7 @@ yourefit/arm: annotations for arms.
 
 ## Environment and Data
 
-###1. install dependencies
+### 1. install dependencies
 ```bash
 conda create --name nvvc python=3.8
 conda activate nvvc
@@ -55,13 +55,13 @@ conda install pytorch torchvision torchaudio cudatoolkit=11.3 -c pytorch
 ```
 
 
-###2. download data
+### 2. download data
 0. submit a form at https://yixchen.github.io/YouRefIt/request.html to request the download link for images and annotations.\
 1. download yourefit.zip
 2. unzip yourefit.zip outside of this project and get a folder named "yourefit"
 3. move or copy "images", "pickle", "paf", and "saliency" in the "yourefit" outside of this project into the existing "yourefit" folder inside this project
 
-###3. download checkpoints (pre-trained models)
+### 3. download checkpoints (pre-trained models)
 Use hyperlinks in checkpoint column of the table below, and put them into the directory named "pretrained", which is under project root (refer to the "project structure" section above)
 
 | Model               | precision: IoU=0.25 | precision: IoU=0.50 | precision: IoU=0.75 | checkpoint                                                                               |
@@ -74,7 +74,7 @@ Use hyperlinks in checkpoint column of the table below, and put them into the di
 
 
 
-###4. (optional) generate inpaintings
+### 4. (optional) generate inpaintings
 We provide jupyter notebooks to expand the human masks required for inpainting,
 Readers need to generate humans masks by themselves using F-RCNN because the 
 yourefit dataset does not include human masks. The mask generation process
