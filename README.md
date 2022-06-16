@@ -1,4 +1,4 @@
-# NVVC-RECT: Referring Expression Comprehension Transformer using Nonverbal and Verbal Cues
+# Understanding Embodied Reference with Touch-Line Transformer
 Code for CoRL 2022 submission Understanding Embodied Reference with Touch-Line Transformer. \
 Modified from MDETR (https://github.com/ashkamath/mdetr) and YouRefIt (https://yixchen.github.io/YouRefIt). 
 
