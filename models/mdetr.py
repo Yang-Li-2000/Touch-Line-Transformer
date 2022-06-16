@@ -290,7 +290,7 @@ class MDETR(nn.Module):
                 outputs_fingertip = self.fingertip_embed(hs_for_arm).sigmoid()
                 arm_classes = self.unified_arm_class_embed(hs_for_arm)
                 arms = torch.cat([outputs_eye, outputs_fingertip], -1)
-                # this '2' was hard-coded by Xiaoxue Chen
+                # this '2' was hard-coded by ***
                 i = 2
                 out.update({
                     '{}_arms'.format(i): arms[-1],
@@ -1047,14 +1047,14 @@ def get_pose_loss(arm, arm_class, target_arm, idx=0):
     target_arm = torch.cat(target_arm, 0)
     if PREDICT_POSE_USING_A_DIFFERENT_MODEL:
         l1_dist = F.l1_loss(arm, target_arm.unsqueeze(1).repeat(1, 10, 1),
-                            reduction='none').sum(dim=2) # Hard-coded by Xiaoxue Chen
+                            reduction='none').sum(dim=2) # Hard-coded by ***
     else:
         num_queries = arm.shape[1]
         expanded_target_arm = target_arm.unsqueeze(1).repeat(1, num_queries, 1)
         l1_dist = F.l1_loss(arm, expanded_target_arm, reduction='none').sum(dim=2)
     min_dist, min_idx = torch.min(l1_dist, dim=1)
 
-    cls_weights = ARM_SCORE_CLASS_WEIGHTS # It was hard-coded by Xiaoxue Chen as [0.2, 0.8]
+    cls_weights = ARM_SCORE_CLASS_WEIGHTS # It was hard-coded by *** as [0.2, 0.8]
     class_criterion = nn.CrossEntropyLoss(
         torch.Tensor(cls_weights).to(arm.device), reduction='none')
     arm_cls_label = torch.zeros((bs, num), dtype=torch.long).to(arm.device)

@@ -112,7 +112,7 @@ def train_one_epoch(
                                            captions=captions,
                                            encode_and_save=True,
                                            paf_samples=pafs)
-            # Xiaoxue Chen's implementation of arm loss computation
+            # ***'s implementation of arm loss computation
             if pose_out is not None and PREDICT_POSE_USING_A_DIFFERENT_MODEL:
                 for k in range(3):
                     pose_loss, target_arm, pred_arm = \
@@ -135,7 +135,7 @@ def train_one_epoch(
                             arm_query=target_arm,
                             encodings_of_tokenized=memory_cache['tokenized']._encodings)
 
-            # Xiaoxue Chen's implementation of adding pred_arm ot outputs
+            # ***'s implementation of adding pred_arm ot outputs
             if pose_out is not None and PREDICT_POSE_USING_A_DIFFERENT_MODEL:
                 outputs.update({'pred_arm': pred_arm})  # last layer
                 outputs.update(pose_out)
@@ -145,7 +145,7 @@ def train_one_epoch(
             #  so that the predicted arms with shortest l1 distanced can be
             #  used for computing the arm-box-align loss
             if args.pose and not PREDICT_POSE_USING_A_DIFFERENT_MODEL:
-                # This '2' was hard-coded by Xiaoxue Chen
+                # This '2' was hard-coded by ***
                 i = 2
                 arm = outputs['{0}_arms'.format(i)]
                 arm_class = outputs['{0}_arm_score'.format(i)]
@@ -350,7 +350,7 @@ def evaluate(
         # First pass through the model
         memory_cache, pose_out = model(samples, captions, encode_and_save=True,
                                        paf_samples=pafs, img_names=img_names)
-        # Xiaoxue Chen's implementation of arm loss computation
+        # ***'s implementation of arm loss computation
         if args.pose and PREDICT_POSE_USING_A_DIFFERENT_MODEL:
             if pose_out is not None:
                 for i in range(3):
@@ -365,7 +365,7 @@ def evaluate(
                         memory_cache=memory_cache, arm_query=target_arm,
                         img_names=img_names)
 
-        # Xiaoxue Chen's implementation of adding pred_arm ot outputs
+        # ***'s implementation of adding pred_arm ot outputs
         if args.pose and PREDICT_POSE_USING_A_DIFFERENT_MODEL:
             if pose_out is not None:
                 outputs.update({'pred_arm': pred_arm})  # last layer
@@ -373,7 +373,7 @@ def evaluate(
 
         # Get the predicted arm and compute arm loss using the same transformer
         if args.pose and not PREDICT_POSE_USING_A_DIFFERENT_MODEL:
-            # This '2' was hard-coded by Xiaoxue Chen
+            # This '2' was hard-coded by ***
             i = 2
             pose_loss, target_arm, pred_arm = \
                 get_pose_loss(outputs['{0}_arms'.format(i)],

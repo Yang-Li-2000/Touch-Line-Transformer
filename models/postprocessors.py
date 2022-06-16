@@ -253,7 +253,7 @@ class PostProcess(nn.Module):
                 pred_arm = pred_arm * scale_fct[:, None, :]
                 results[i]['pred_arm'] = pred_arm[i]
 
-        # TODO: the '2' is hard-coded by Xiaoxue Chen.
+        # TODO: the '2' is hard-coded by ***.
         #  Consider modifying it to make it more general
         if '2_arms' in outputs:
             arms, arm_scores = outputs["2_arms"], outputs["2_arm_score"]
