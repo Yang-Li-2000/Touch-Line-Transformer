@@ -1,6 +1,5 @@
 # Understanding Embodied Reference with Touch-Line Transformer
-Code for CoRL 2022 submission Understanding Embodied Reference with Touch-Line Transformer. \
-Modified from MDETR (https://github.com/ashkamath/mdetr) and YouRefIt (https://yixchen.github.io/YouRefIt). 
+Code for CoRL 2022 submission Understanding Embodied Reference with Touch-Line Transformer.
 
 ## Project Structure
     Project_NAME/
