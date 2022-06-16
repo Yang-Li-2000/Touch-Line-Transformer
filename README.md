@@ -66,13 +66,13 @@ conda install pytorch torchvision torchaudio cudatoolkit=11.3 -c pytorch
 ### 3. download checkpoints (pre-trained models)
 Use hyperlinks in checkpoint column of the table below, and put them into the directory named "pretrained", which is under project root (refer to the "project structure" section above)
 
-| Model               | precision: IoU=0.25 | precision: IoU=0.50 | precision: IoU=0.75 | checkpoint                                                                               |
-|---------------------|---------------------|---------------------|---------------------|------------------------------------------------------------------------------------------|
-| eye + fingertip     | 0.7002398081534772  | 0.6250999200639489  | 0.3820943245403677  | [best_etf.pth](https://www.icloud.com.cn/iclouddrive/0c06lZqRZijvwT4WqcMgBtiRw#best_etf) |
-| elbow joint + wrist | 0.6786570743405276  | 0.5971223021582733  | 0.34772182254196643 | [best_arm.pth](https://www.icloud.com.cn/iclouddrive/012gtCECZ_TRZXkVNMZYlMVkA#best_arm) |
-| no explicit pose    | 0.6370903277378097  | 0.5651478816946442  | 0.36211031175059955 | [best_np.pth](https://www.icloud.com.cn/iclouddrive/02c7z2s0sD7PMmSTukDiHNd4g#best_np)   |
-| inpainting          | 0.5787370103916867  | 0.5091926458832934  | 0.31414868105515587 | [best_ip.pth](https://www.icloud.com.cn/iclouddrive/0cbyKDSeOP0gi1oBojieeoiJg#best_ip)   |
-| MDETR               | -                   | -                   | -                   | [20_query_model.pth](https://www.icloud.com.cn/iclouddrive/007HLPMZ7qRE3ZudW9-cGUI8Q#20_query_model)                                                               |
+| Model               | precision: IoU=0.25 | precision: IoU=0.50 | precision: IoU=0.75 | checkpoint                |
+|---------------------|---------------------|---------------------|---------------------|---------------------------|
+| eye + fingertip     | 0.7002398081534772  | 0.6250999200639489  | 0.3820943245403677  | [best_etf.pth](https://drive.google.com/file/d/1l8-62sHlfQUQIlYUwBBd5dpe3UdqiaZ5/view?usp=sharing)      |
+| elbow joint + wrist | 0.6786570743405276  | 0.5971223021582733  | 0.34772182254196643 | [best_arm.pth](https://drive.google.com/file/d/1xqoEECw3rBDmEFpMlIiqy8QOXuQiaEhb/view?usp=sharing)      |
+| no explicit pose    | 0.6370903277378097  | 0.5651478816946442  | 0.36211031175059955 | [will be available]       |
+| inpainting          | 0.5787370103916867  | 0.5091926458832934  | 0.31414868105515587 | [will be available] |
+| MDETR               | -                   | -                   | -                   | [20_query_model.pth](https://drive.google.com/file/d/1veNUTmLHjV0d_vw9dcFAxvUtp3HfAUYi/view?usp=sharing) |
 
 
 
@@ -83,7 +83,7 @@ yourefit dataset does not include human masks. The mask generation process
 is straightforward. Readers can refer to the github repo created by the authors
 of F-RCNNs for how to generate human masks. We only provide notebooks 
 to expand and resize masks. Download by clicking the hyperlink.\
-[process_masks_and_images_for_MAT.ipynb](https://www.icloud.com.cn/iclouddrive/097apIZkEWV4t6IDgv2ihPnqQ#process_masks_and_images_for_MAT)
+[will be available]()
 
 After generating masks using the notebook, readers may, or may not, need to 
 flip the values (e.g. change 255 to 0 and 0 to 255) in the output masks, 
@@ -97,7 +97,7 @@ feedings them into MAT, readers need to reshape the MAT output back to
 original sizes. In contrast, if readers choose to mask, readers can process the
 MAT outputs by cropping them. We only provide the notebook to reshape square 
 outputs back to the sizes of original images. \
-[restore_inpaint_size.ipynb](https://www.icloud.com.cn/iclouddrive/0b4JVNYx6bpT542w59-YnZiVw#restore_inpaint_size) \
+[will be available]() \
 Note that readers need to modify the image_dir, inpaint_dir, and output_dir in 
 the notebook provided above. 
 (image_dir is the path to yourefit images. the shape of the original images 
@@ -182,8 +182,8 @@ python -m torch.distributed.launch --nproc_per_node=8 --master_port 64334 --use_
 We provide jupyter notebooks to visualize predictions stored in csv files, which can be obtained by:\
 setting SAVE_EVALUATION_PREDICTIONS = True and run any of the evaluation command provided in the evaluation section above.
 
-[cleaned_visualize_predictions_eye_to_fingertip.ipynb](https://www.icloud.com.cn/iclouddrive/085wsL7MVOS36Gj2FnbCFO0cw#cleaned_visualize_predictions_eye_to_fingertip) \
-[cleaned_visualize_predictions_elbow_joint_to_wrist.ipynb](https://www.icloud.com.cn/iclouddrive/0552kQOlE-QikukvaIkIKm-jw#cleaned_visualize_predictions_elbow_joint_to_wrist) \
-[cleaned_visualize_predictions_no-pose.ipynb](https://www.icloud.com.cn/iclouddrive/0a3vivLQiLPZsQtDJgzebWbqA#cleaned_visualize_predictions_no-pose) \
-[cleaned_visualize_predictions_inpaint.ipynb](https://www.icloud.com.cn/iclouddrive/07bTPib5HN7beipUBb6VgaM8A#cleaned_visualize_predictions_inpaint)
+[will be available]() \
+[will be available]() \
+[will be available]() \
+[will be available]()
 
