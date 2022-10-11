@@ -1,5 +1,5 @@
 # Understanding Embodied Reference with Touch-Line Transformer
-Code for CoRL 2022 submission Understanding Embodied Reference with Touch-Line Transformer.
+Code for Understanding Embodied Reference with Touch-Line Transformer.
 
 ## Project Structure
     Project_NAME/
