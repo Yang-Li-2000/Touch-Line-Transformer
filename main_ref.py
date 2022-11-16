@@ -20,6 +20,8 @@ import torch
 import torch.utils
 from torch.utils.data import ConcatDataset, DataLoader, DistributedSampler
 from IPython import embed
+
+import temp_vars
 import util.dist as dist
 import util.misc as utils
 from engine import evaluate, train_one_epoch
@@ -910,16 +912,17 @@ def main(args):
             if args.do_qa:
                 metric = test_stats["gqa_accuracy_answer_total_unscaled"]
             else:
-                temp = [v[1] for k, v in test_stats.items() if "coco_eval_bbox" in k]
+                # get p75 for yourefit
+                temp = [v[-1] for k, v in test_stats.items() if "yourefit_yourefit" in k]
                 if len(temp) > 0:
                     metric = np.mean(temp)
                 else:
                     metric = temp
                     Save_Best_Checkpoint = False
 
-            if Save_Best_Checkpoint and  args.output_dir and metric > best_metric:
-                best_metric = metric
-                checkpoint_paths = [output_dir / "BEST_checkpoint.pth"]
+            if Save_Best_Checkpoint and args.output_dir and metric > temp_vars.max_p75:
+                temp_vars.max_p75 = metric
+                checkpoint_paths = [output_dir / ("BEST_checkpoint_since" + args.start_epoch + ".pth")]
                 # extra checkpoint before LR drop and every 100 epochs
                 for checkpoint_path in checkpoint_paths:
                     dist.save_on_master(

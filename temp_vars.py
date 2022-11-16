@@ -14,3 +14,5 @@ large_object_success_count_50 = 0
 small_object_success_count_75 = 0
 medium_object_success_count_75 = 0
 large_object_success_count_75 = 0
+
+max_p75 = 0

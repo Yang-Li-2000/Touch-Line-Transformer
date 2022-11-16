@@ -621,6 +621,8 @@ class YouRefItEvaluator(object):
                         box_centers_xyxy = sorted_boxes[:, :2]
                         arm_tensor = fingertip_xyxy - eye_xyxy
                         box_tensor = box_centers_xyxy - eye_xyxy
+                        if len(arm_tensor.shape) == 1:
+                            arm_tensor = arm_tensor.unsqueeze(0)
                         cos_sim = F.cosine_similarity(arm_tensor, box_tensor,
                                                       dim=1)
 
