@@ -897,11 +897,20 @@ class SetCriterion(nn.Module):
         assert target_arm.shape[0] == pred_arm.shape[0]
 
         if USE_GT__ARM_FOR_ARM_BOX_ALIGN_LOSS:
-            arm_tensor = target_arm[:, 2:4] - target_arm[:,
-                                              0:2]  # eye to fingertip
-            box_tensor = src_boxes[:, :2] - target_arm[:,
-                                            0:2]  # eye to box center
+            if COS_SIM_VERTEX == 'EYE':
+                arm_tensor = target_arm[:, 2:4] - target_arm[:, 0:2]  # eye to fingertip
+                box_tensor = src_boxes[:, :2] - target_arm[:, 0:2]  # eye to box center
+            elif COS_SIM_VERTEX == 'FINGERTIP':
+                arm_tensor = target_arm[:, 0:2] - target_arm[:, 2:4]  # fingertip to eye
+                box_tensor = src_boxes[:, :2] - target_arm[:, 2:4]  # fingertip to box center
+            elif COS_SIM_VERTEX == 'OBJECT':
+                arm_tensor = target_arm[:, 0:2] - src_boxes[:, :2]  # box center to eye
+                box_tensor = target_arm[:, 2:4] - src_boxes[:, :2]  # box center to fingertip
+            else:
+                raise ValueError('Invalid COS_SIM_VERTEX')
         else:
+            if COS_SIM_VERTEX != 'EYE':
+                raise NotImplementedError('Cosine similarity other than the eye is not implemented when USE_GT__ARM_FOR_ARM_BOX_ALIGN_LOSS == False')
             arm_tensor = pred_arm[:, 2:4] - pred_arm[:, 0:2]  # eye to fingertip
             box_tensor = src_boxes[:, :2] - pred_arm[:,
                                             0:2]  # eye to box center
@@ -911,8 +920,17 @@ class SetCriterion(nn.Module):
         cos_sim = F.cosine_similarity(arm_tensor, box_tensor, dim=1)
 
         # Cosine similarities between ground truth eye-to-fingertip and eye-to-box
-        gt_arm_tensor = target_arm[:, 2:4] - target_arm[:, 0:2]
-        gt_box_tensor = target_boxes[:, :2] - target_arm[:, 0:2]
+        if COS_SIM_VERTEX == 'EYE':
+            gt_arm_tensor = target_arm[:, 2:4] - target_arm[:, 0:2]
+            gt_box_tensor = target_boxes[:, :2] - target_arm[:, 0:2]
+        elif COS_SIM_VERTEX == 'FINGERTIP':
+            gt_arm_tensor = target_arm[:, 0:2] - target_arm[:, 2:4]
+            gt_box_tensor = target_boxes[:, :2] - target_arm[:, 2:4]
+        elif COS_SIM_VERTEX == 'OBJECT':
+            gt_arm_tensor = target_arm[:, 0:2] - target_boxes[:, :2]
+            gt_box_tensor = target_arm[:, 2:4] - target_boxes[:, :2]
+        else:
+            raise ValueError('Invalid COS_SIM_VERTEX')
         # Note: gt_cos_sim is 0 for indices in null_list
         if CALCULATE_COS_SIM:
             for i in range(len(gt_box_tensor)):

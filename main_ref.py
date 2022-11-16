@@ -353,6 +353,17 @@ def main(args):
     print('args.giou_loss_coef:                  ', args.giou_loss_coef)
     print('USE_GT__ARM_FOR_ARM_BOX_ALIGN_LOSS:   ',
           USE_GT__ARM_FOR_ARM_BOX_ALIGN_LOSS)
+    print()
+    print('RESERVE_QUERIES_FOR_ARMS:             ', RESERVE_QUERIES_FOR_ARMS)
+    print('NUM_RESERVED_QUERIES_FOR_ARMS:        ', NUM_RESERVED_QUERIES_FOR_ARMS)
+    print()
+    if REPLACE_LANGUAGE_INPUTS:
+        print('REPLACE_LANGUAGE_INPUTS:              ', REPLACE_LANGUAGE_INPUTS)
+        print('DUMMY_LANGUAGE_INPUT:                 ', DUMMY_LANGUAGE_INPUT)
+        print()
+
+    print('COS_SIM_VERTEX:                       ', COS_SIM_VERTEX)
+    print()
     if ARM_BOX_ALIGN_OFFSET_BY_GT:
         print('ARM_BOX_ALIGN_OFFSET_BY_GT:           ',
               ARM_BOX_ALIGN_OFFSET_BY_GT)
