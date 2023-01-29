@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 """
-# Copyright (c): Anonymous Authors. Licensed under the Apache License 2.0. All Rights Reserved
+# Copyright (c): Yang Li and Xiaoxue Chen. Licensed under the Apache License 2.0. All Rights Reserved
 # ------------------------------------------------------------------------
 # Modified from YouRefIt (https://yixchen.github.io/YouRefIt)
 YouRefIt referring image PyTorch dataset.

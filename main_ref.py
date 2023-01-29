@@ -1,4 +1,4 @@
-# Copyright (c): Anonymous Authors. Licensed under the Apache License 2.0. All Rights Reserved
+# Copyright (c): Yang Li and Xiaoxue Chen. Licensed under the Apache License 2.0. All Rights Reserved
 # ------------------------------------------------------------------------
 # Modified from MDETR (https://github.com/ashkamath/mdetr)
 # Copyright (c) Aishwarya Kamath & Nicolas Carion. Licensed under the Apache License 2.0. All Rights Reserved
@@ -922,12 +922,13 @@ def main(args):
 
             if Save_Best_Checkpoint and args.output_dir and metric > temp_vars.max_p75:
                 temp_vars.max_p75 = metric
-                checkpoint_paths = [output_dir / ("BEST_checkpoint_since" + args.start_epoch + ".pth")]
+                checkpoint_paths = [output_dir / ("BEST_checkpoint_since" + str(args.start_epoch) + ".pth")]
                 # extra checkpoint before LR drop and every 100 epochs
                 for checkpoint_path in checkpoint_paths:
                     dist.save_on_master(
                         {
                             "model": model_without_ddp.state_dict(),
+                            "model_ema": model_ema.state_dict() if args.ema else None,
                             "optimizer": optimizer.state_dict(),
                             "epoch": epoch,
                             "args": args,

@@ -1,4 +1,4 @@
-# Copyright (c): Anonymous Authors. Licensed under the Apache License 2.0. All Rights Reserved
+# Copyright (c): Yang Li and Xiaoxue Chen. Licensed under the Apache License 2.0. All Rights Reserved
 # ------------------------------------------------------------------------
 # Modified from MDETR (https://github.com/ashkamath/mdetr)
 # Copyright (c) Aishwarya Kamath & Nicolas Carion. Licensed under the Apache License 2.0. All Rights Reserved
@@ -898,14 +898,14 @@ class SetCriterion(nn.Module):
 
         if USE_GT__ARM_FOR_ARM_BOX_ALIGN_LOSS:
             if COS_SIM_VERTEX == 'EYE':
-                arm_tensor = target_arm[:, 2:4] - target_arm[:, 0:2]  # eye to fingertip
-                box_tensor = src_boxes[:, :2] - target_arm[:, 0:2]  # eye to box center
+                arm_tensor = target_arm[:, 2:4] - target_arm[:, 0:2]  # fingertip to eye
+                box_tensor = src_boxes[:, :2] - target_arm[:, 0:2]  # box center to eye
             elif COS_SIM_VERTEX == 'FINGERTIP':
-                arm_tensor = target_arm[:, 0:2] - target_arm[:, 2:4]  # fingertip to eye
-                box_tensor = src_boxes[:, :2] - target_arm[:, 2:4]  # fingertip to box center
+                arm_tensor = target_arm[:, 2:4] - target_arm[:, 0:2]   # fingertip to eye
+                box_tensor = src_boxes[:, :2] - target_arm[:, 2:4]  # box center to fingertip
             elif COS_SIM_VERTEX == 'OBJECT':
-                arm_tensor = target_arm[:, 0:2] - src_boxes[:, :2]  # box center to eye
-                box_tensor = target_arm[:, 2:4] - src_boxes[:, :2]  # box center to fingertip
+                arm_tensor = target_arm[:, 0:2] - src_boxes[:, :2]  # eye to box center
+                box_tensor = target_arm[:, 2:4] - src_boxes[:, :2]  # fingertip to box center
             else:
                 raise ValueError('Invalid COS_SIM_VERTEX')
         else:
@@ -924,7 +924,7 @@ class SetCriterion(nn.Module):
             gt_arm_tensor = target_arm[:, 2:4] - target_arm[:, 0:2]
             gt_box_tensor = target_boxes[:, :2] - target_arm[:, 0:2]
         elif COS_SIM_VERTEX == 'FINGERTIP':
-            gt_arm_tensor = target_arm[:, 0:2] - target_arm[:, 2:4]
+            gt_arm_tensor = target_arm[:, 2:4] - target_arm[:, 0:2]
             gt_box_tensor = target_boxes[:, :2] - target_arm[:, 2:4]
         elif COS_SIM_VERTEX == 'OBJECT':
             gt_arm_tensor = target_arm[:, 0:2] - target_boxes[:, :2]
