@@ -1,5 +1,6 @@
 # Understanding Embodied Reference with Touch-Line Transformer
-Code for ICLR 2023 paper Understanding Embodied Reference with Touch-Line Transformer.
+Code for ICLR 2023 paper Understanding Embodied Reference with Touch-Line Transformer.\
+Authors: Yang Li, Xiaoxue Chen, Hao Zhao, Jiangtao Gong, Guyue Zhou, Federico Rossano, Yixin Zhu
 
 ## Project Structure
     Project_NAME/
@@ -82,7 +83,7 @@ yourefit dataset does not include human masks. The mask generation process
 is straightforward. Readers can refer to the github repo created by the authors
 of F-RCNNs for how to generate human masks. We only provide notebooks 
 to expand and resize masks. Download by clicking the hyperlink.\
-[will be available]()
+[process_masks_and_images_for_MAT.ipynb](https://www.icloud.com.cn/iclouddrive/097apIZkEWV4t6IDgv2ihPnqQ#process_masks_and_images_for_MAT)
 
 After generating masks using the notebook, readers may, or may not, need to 
 flip the values (e.g. change 255 to 0 and 0 to 255) in the output masks, 
@@ -96,7 +97,7 @@ feedings them into MAT, readers need to reshape the MAT output back to
 original sizes. In contrast, if readers choose to mask, readers can process the
 MAT outputs by cropping them. We only provide the notebook to reshape square 
 outputs back to the sizes of original images. \
-[will be available]() \
+[restore_inpaint_size.ipynb](https://www.icloud.com.cn/iclouddrive/0b4JVNYx6bpT542w59-YnZiVw#restore_inpaint_size) \
 Note that readers need to modify the image_dir, inpaint_dir, and output_dir in 
 the notebook provided above. 
 (image_dir is the path to yourefit images. the shape of the original images 
