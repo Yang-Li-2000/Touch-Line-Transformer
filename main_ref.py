@@ -858,8 +858,11 @@ def main(args):
             unscaled_ce_loss = test_stats['yourefit_loss_ce_unscaled']
             unscaled_giou_loss = test_stats['yourefit_loss_giou_unscaled']
             unscaled_box_loss = test_stats['yourefit_loss_bbox_unscaled']
-            unscaled_contrastive_align_loss = test_stats[
-                'yourefit_loss_contrastive_align_unscaled']
+            if 'yourefit_loss_contrastive_align_unscaled' in test_stats.keys():
+                unscaled_contrastive_align_loss = test_stats['yourefit_loss_contrastive_align_unscaled']
+            else:
+                unscaled_contrastive_align_loss = 0.0
+
 
             if dist.get_world_size() > 1:
                 if PREDICT_POSE_USING_A_DIFFERENT_MODEL:
