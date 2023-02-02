@@ -248,6 +248,10 @@ class ReferDataset(data.Dataset):
         bbox = pick['bbox']
         target_word = pick['anno_target']
         phrase = pick['anno_sentence']
+
+        if REPLACE_SENTENCE_WITH_TARGET_WORD:
+            phrase = target_word
+
         if REPLACE_LANGUAGE_INPUTS:
             phrase = DUMMY_LANGUAGE_INPUT
             target_word = DUMMY_LANGUAGE_INPUT
