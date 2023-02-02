@@ -85,6 +85,9 @@ def train_one_epoch(
         answers = {k: v.to(device) for k, v in batch_dict[
             "answers"].items()} if "answers" in batch_dict else None
         captions = [t["caption"] for t in targets]
+        if REMOVE_LANGUAGE_BY_SETTING_CAPTION_TO_NONE:
+            captions = None
+            positive_map = positive_map * 0
 
         targets = targets_to(targets, device)
 
@@ -133,10 +136,16 @@ def train_one_epoch(
             #   function below sometimes become empty if not pass in
             #   the encodings of memory_cache['tokenized'] and manually set it
             #   in the function below.
-            outputs = model(samples, captions, encode_and_save=False,
-                            memory_cache=memory_cache,
-                            arm_query=target_arm,
-                            encodings_of_tokenized=memory_cache['tokenized']._encodings)
+            if memory_cache['tokenized'] is not None:
+                outputs = model(samples, captions, encode_and_save=False,
+                                memory_cache=memory_cache,
+                                arm_query=target_arm,
+                                encodings_of_tokenized=memory_cache['tokenized']._encodings)
+            else:
+                outputs = model(samples, captions, encode_and_save=False,
+                                memory_cache=memory_cache,
+                                arm_query=target_arm,
+                                encodings_of_tokenized=None)
 
             # ***'s implementation of adding pred_arm ot outputs
             if pose_out is not None and PREDICT_POSE_USING_A_DIFFERENT_MODEL:

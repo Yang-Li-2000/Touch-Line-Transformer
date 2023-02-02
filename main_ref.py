@@ -336,6 +336,9 @@ def main(args):
     if args.frozen_weights is not None:
         assert args.masks, "Frozen training is meant for segmentation only"
 
+    if REMOVE_LANGUAGE_BY_SETTING_CAPTION_TO_NONE:
+        args.contrastive_align_loss = False
+
     print(args)
 
     print()
@@ -380,6 +383,9 @@ def main(args):
 
     print('COS_SIM_VERTEX:                       ', COS_SIM_VERTEX)
     print()
+    print('REPLACE_SENTENCE_WITH_TARGET_WORD:    ', REPLACE_SENTENCE_WITH_TARGET_WORD)
+    print()
+    print('REMOVE_LANGUAGE_BY_SETTING_CAPTION_TO_NONE: ', REMOVE_LANGUAGE_BY_SETTING_CAPTION_TO_NONE)
 
     # Initialize tensorboard
     tensorboard_log_dir = 'runs'
@@ -733,8 +739,11 @@ def main(args):
             unscaled_ce_loss = train_stats['loss_ce_unscaled']
             unscaled_giou_loss = train_stats['loss_giou_unscaled']
             unscaled_box_loss = train_stats['loss_bbox_unscaled']
-            unscaled_contrastive_align_loss = train_stats[
-                'loss_contrastive_align_unscaled']
+            if 'loss_contrastive_align_unscaled' in train_stats.keys():
+                unscaled_contrastive_align_loss = train_stats[
+                    'loss_contrastive_align_unscaled']
+            else:
+                unscaled_contrastive_align_loss = 0.0
 
             if dist.get_world_size() > 1:
                 if PREDICT_POSE_USING_A_DIFFERENT_MODEL:

@@ -19,6 +19,10 @@ import torch.nn.functional as F
 from torch import Tensor, nn
 from transformers import RobertaModel, RobertaTokenizerFast
 
+import sys
+sys.path.append('..')
+from magic_numbers import *
+
 global img_names
 global img_token_size
 global img_attn_pairs
@@ -135,6 +139,10 @@ class Transformer(nn.Module):
                 src, tgt, query_embed, pos_embed = src + 0.1 * pos_embed, query_embed, None, None
 
             device = src.device
+
+            if REMOVE_LANGUAGE_BY_SETTING_CAPTION_TO_NONE:
+                text = None
+
             if text is None:
                 text_attention_mask, text_memory_resized, tokenized = None, None, None
             elif isinstance(text[0], str):
@@ -175,8 +183,10 @@ class Transformer(nn.Module):
                 text_memory = img_memory[-len(text_memory_resized):]
             else:
                 text_memory = None
-
-            assert img_memory.shape[1] == text_memory.shape[1] == tgt.shape[1]
+            if text_memory is not None:
+                assert img_memory.shape[1] == text_memory.shape[1] == tgt.shape[1]
+            else:
+                assert img_memory.shape[1] == tgt.shape[1]
             memory_cache = {
                 "text_memory_resized": text_memory_resized,
                 "text_memory": text_memory,

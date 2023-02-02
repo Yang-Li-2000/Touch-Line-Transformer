@@ -1134,7 +1134,10 @@ def build(args):
     backbone = build_backbone(args)
 
     transformer = build_transformer(args)
-    args.contrastive_align_loss = True
+    if REMOVE_LANGUAGE_BY_SETTING_CAPTION_TO_NONE:
+        args.contrastive_align_loss = False
+    else:
+        args.contrastive_align_loss = True
     model = MDETR(
         backbone,
         transformer,

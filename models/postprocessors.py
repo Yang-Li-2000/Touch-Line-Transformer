@@ -12,6 +12,10 @@ from torch import nn
 
 from util import box_ops
 
+import sys
+sys.path.append('..')
+from magic_numbers import *
+
 global img_token_pairs
 img_token_pairs = {}
 
@@ -132,6 +136,10 @@ class PostProcess(nn.Module):
 
     # Compute the alignment between box and text
     def loss_contrastive_align(self, outputs, targets, temperature=0.07):
+
+        if REMOVE_LANGUAGE_BY_SETTING_CAPTION_TO_NONE:
+            return torch.zeros([outputs['pred_boxes'].shape[0], outputs['pred_boxes'].shape[1]])
+
         # Construct dummy indices
         bs = outputs["proj_queries"].shape[0]
         indices = []
@@ -231,7 +239,10 @@ class PostProcess(nn.Module):
         """
 
         # Call the function that computes the alignment between box and text
-        align_cost = self.loss_contrastive_align(outputs, targets)
+        if REMOVE_LANGUAGE_BY_SETTING_CAPTION_TO_NONE:
+            align_cost = self.loss_contrastive_align(outputs, targets)
+        else:
+            align_cost = self.loss_contrastive_align(outputs, targets)
 
         out_logits, out_bbox = outputs["pred_logits"], outputs["pred_boxes"]
         # scores, out_bbox = outputs["pred_scores"], outputs["pred_boxes"]
