@@ -41,14 +41,15 @@ h2 {
 }
 
 .button {
-  background-color: #04AA6D;
-  border: none;
-  color: white;
-  padding: 20px;
+  border: 2px solid black;
+  border-color: #000;
+  background-color: #FFF;
+  color: black;
+  padding: 8px;
   text-align: center;
   text-decoration: none;
   display: inline-block;
-  font-size: 16px;
+  font-size: 1em;
   margin: 4px 2px;
 }
 
@@ -57,3 +58,9 @@ h2 {
 .button3 {border-radius: 8px;}
 .button4 {border-radius: 12px;}
 .button5 {border-radius: 50%;}
+
+a {
+	text-decoration: none;
+	color: #000;
+	
+}
