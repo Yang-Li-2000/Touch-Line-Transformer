@@ -187,3 +187,8 @@ setting SAVE_EVALUATION_PREDICTIONS = True and run any of the evaluation command
 [cleaned_visualize_predictions_no-pose.ipynb](https://www.icloud.com.cn/iclouddrive/0a3vivLQiLPZsQtDJgzebWbqA#cleaned_visualize_predictions_no-pose) \
 [cleaned_visualize_predictions_inpaint.ipynb](https://www.icloud.com.cn/iclouddrive/07bTPib5HN7beipUBb6VgaM8A#cleaned_visualize_predictions_inpaint)
 
+## Dataset
+We annotated eyes, fingertips, elbows, and wrists. 
+They are under the yourefit folder of this repo. 
+Eye and fingertip locations are stored in csv files. 
+Elbows and wrists locations are stored in a json file. 
