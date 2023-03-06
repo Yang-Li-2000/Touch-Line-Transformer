@@ -191,4 +191,4 @@ setting SAVE_EVALUATION_PREDICTIONS = True and run any of the evaluation command
 We annotated eyes, fingertips, elbows, and wrists. 
 They are under the yourefit folder of this repo. 
 Eye and fingertip locations are stored in csv files. 
-Elbows and wrists locations are stored in a json file. 
+Elbows and wrist locations are stored in a json file. 
