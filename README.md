@@ -1,5 +1,5 @@
 # Understanding Embodied Reference with Touch-Line Transformer
-Code for ICLR 2023 paper Understanding Embodied Reference with Touch-Line Transformer.\
+Code for ICLR 2023 paper [Understanding Embodied Reference with Touch-Line Transformer](https://openreview.net/pdf?id=ugA1HX69sf).\
 Authors: Yang Li, Xiaoxue Chen, Hao Zhao, Jiangtao Gong, Guyue Zhou, Federico Rossano, Yixin Zhu
 
 ## Project Structure
